@@ -1,0 +1,858 @@
+'use client'
+
+import { useState, useEffect, useCallback, useRef } from 'react'
+
+const CURRENCIES = ['USD', 'EUR', 'GBP', 'CHF']
+const TENORS = ['12M', '18M', '24M', '36M']
+const RC_STRIKES = ['50%', '60%', '70%', '80%']
+const SNOWBALL_BARRIERS = ['50/5%', '60/6%', '70/7%', '80/8%']
+const BONUS_BARRIERS = ['50%', '60%', '70%', '80%']
+const BONUS_CAPS = { '12M': '125%', '18M': '137.5%', '24M': '150%', '36M': '175%' }
+const CPN_PROTECTIONS = ['85%', '90%', '95%', '100%']
+
+const MOCK_DATA = {
+  AAPL: { price: 189.84, change: 1.23, low52: 164.08, high52: 199.62, iv: 28.4 },
+  MSFT: { price: 415.32, change: -0.45, low52: 309.45, high52: 430.82, iv: 24.1 },
+  NVDA: { price: 875.40, change: 3.18, low52: 430.00, high52: 974.00, iv: 52.3 },
+  TSLA: { price: 175.22, change: -2.10, low52: 138.80, high52: 299.29, iv: 61.8 },
+  AMZN: { price: 198.10, change: 0.87, low52: 151.61, high52: 201.20, iv: 31.2 },
+  GOOGL: { price: 172.63, change: 0.52, low52: 120.21, high52: 180.25, iv: 27.9 },
+  META:  { price: 526.86, change: 1.95, low52: 279.40, high52: 542.81, iv: 35.6 },
+  NESN:  { price: 94.22, change: -0.31, low52: 86.00, high52: 110.80, iv: 18.2 },
+  ASML:  { price: 870.55, change: 2.41, low52: 560.00, high52: 1000.00, iv: 34.5 },
+}
+
+const DEFAULT_STATE = {
+  step: 1,
+  bankName: 'Plurimi Wealth Monaco',
+  clientName: '',
+  clientEmail: '',
+  disclaimer: 'This document is for informational purposes only and does not constitute investment advice. Past performance is not indicative of future results. Capital is at risk.',
+  tickers: [
+    { symbol: 'AAPL', currency: 'USD', data: null, loading: false, bullCase: '', bearCase: '', entryNote: '' },
+    { symbol: 'NVDA', currency: 'USD', data: null, loading: false, bullCase: '', bearCase: '', entryNote: '' },
+    { symbol: '', currency: 'USD', data: null, loading: false, bullCase: '', bearCase: '', entryNote: '' },
+  ],
+  thesis: '',
+  basketDynamics: '',
+  productRows: [
+    { key: 'Maturity', val: '24 Months' },
+    { key: 'Worst-of (WO) Barrier', val: '70%' },
+    { key: 'Autocall Barrier', val: '100%' },
+    { key: 'Protection Barrier', val: '60%' },
+    { key: 'Coupon Barrier', val: '70%' },
+    { key: 'Coupon / Call Premium', val: '8.50% p.a.' },
+    { key: 'Upside Participation', val: '100%' },
+    { key: 'Cap', val: 'N/A' },
+  ],
+  pricingGrids: {
+    rc: Array(4).fill(null).map(() => Array(4).fill('')),
+    snowball: Array(4).fill(null).map(() => Array(4).fill('')),
+    bonus: Array(4).fill(null).map(() => Array(4).fill('')),
+    cpn: Array(4).fill(null).map(() => Array(4).fill('')),
+  },
+  showGrids: { rc: true, snowball: true, bonus: true, cpn: true },
+  pricingCurrency: 'USD',
+  aiLoading: {},
+}
+
+// ─── AI CALL — hits our own secure Next.js API route, not Anthropic directly ─
+async function callClaude(prompt) {
+  const res = await fetch('/api/claude', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt }),
+  })
+  const data = await res.json()
+  if (data.error) throw new Error(data.error)
+  return data.text || ''
+}
+
+function pos52w(price, low, high) {
+  if (!price || !low || !high || high === low) return 50
+  return Math.round(((price - low) / (high - low)) * 100)
+}
+
+function fmt(n, dec = 2) {
+  if (n == null) return '—'
+  return Number(n).toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec })
+}
+
+async function fetchMarketData(symbol) {
+  await new Promise(r => setTimeout(r, 600 + Math.random() * 400))
+  const key = symbol.toUpperCase()
+  if (MOCK_DATA[key]) return { ...MOCK_DATA[key] }
+  return { price: 100 + Math.random() * 200, change: (Math.random() - 0.5) * 4, low52: 80 + Math.random() * 40, high52: 160 + Math.random() * 80, iv: 20 + Math.random() * 30 }
+}
+
+function asciiTable(title, rowLabels, colLabels, grid) {
+  const colW = 10, rowW = 16
+  const sep = '+' + '-'.repeat(rowW) + colLabels.map(() => '+' + '-'.repeat(colW)).join('') + '+'
+  let out = title + '\n' + sep + '\n'
+  out += '|' + ''.padEnd(rowW) + colLabels.map(c => '|' + c.padEnd(colW)).join('') + '|\n' + sep + '\n'
+  rowLabels.forEach((r, ri) => {
+    out += '|' + r.padEnd(rowW) + colLabels.map((_, ci) => '|' + (grid?.[ri]?.[ci] || '—').padEnd(colW)).join('') + '|\n'
+  })
+  return out + sep + '\n'
+}
+
+function buildHTMLExport(state) {
+  const activeTickers = state.tickers.filter(t => t.symbol && t.data)
+
+  const gridHTML = (label, rowLabels, colLabels, grid, caps) => {
+    const rows = rowLabels.map((r, ri) =>
+      `<tr><td class="row-label">${r}</td>${colLabels.map((c, ci) =>
+        `<td>${grid?.[ri]?.[ci] || '—'}${caps ? `<br/><span class="cap-note">Cap ${caps[c]}</span>` : ''}</td>`
+      ).join('')}</tr>`
+    ).join('')
+    return `<table class="pg-table"><thead><tr><th>${label}</th>${colLabels.map(c => `<th>${c}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table>`
+  }
+
+  const stockCards = activeTickers.map(t => {
+    const p = t.data
+    const pct = pos52w(p?.price, p?.low52, p?.high52)
+    return `<div class="stock-card">
+      <div class="sc-header">
+        <span class="sc-sym">${t.symbol}</span>
+        <span class="sc-cur">${t.currency}</span>
+        <span class="sc-price">${fmt(p?.price)}</span>
+        <span class="sc-chg ${p?.change >= 0 ? 'pos' : 'neg'}">${p?.change >= 0 ? '▲' : '▼'} ${fmt(Math.abs(p?.change))}%</span>
+      </div>
+      <div class="sc-bar-wrap"><div class="sc-bar-fill" style="width:${pct}%"></div><div class="sc-bar-dot" style="left:${pct}%"></div></div>
+      <div class="sc-range">${fmt(p?.low52)} <span>52W Range</span> ${fmt(p?.high52)}</div>
+      <div class="sc-iv">Implied Vol: <strong>${fmt(p?.iv)}%</strong></div>
+      ${t.bullCase ? `<div class="sc-section sc-bull"><strong>Bull Case</strong><p>${t.bullCase}</p></div>` : ''}
+      ${t.bearCase ? `<div class="sc-section sc-bear"><strong>Bear Case</strong><p>${t.bearCase}</p></div>` : ''}
+      ${t.entryNote ? `<div class="sc-section sc-entry"><strong>Entry Note</strong><p>${t.entryNote}</p></div>` : ''}
+    </div>`
+  }).join('')
+
+  const prodRows = (state.productRows || []).map(r => `<tr><td>${r.key}</td><td>${r.val}</td></tr>`).join('')
+
+  const gridsHTML = [
+    state.showGrids.rc ? `<div class="grid-section"><h4>Autocall RC — Strike vs Tenor (${state.pricingCurrency})</h4>${gridHTML('Strike', RC_STRIKES, TENORS, state.pricingGrids.rc)}</div>` : '',
+    state.showGrids.snowball ? `<div class="grid-section"><h4>Snowball (${state.pricingCurrency})</h4>${gridHTML('Barrier/Coupon', SNOWBALL_BARRIERS, state.pricingGrids.snowball)}</div>` : '',
+    state.showGrids.bonus ? `<div class="grid-section"><h4>Bonus Note (${state.pricingCurrency})</h4>${gridHTML('Barrier', BONUS_BARRIERS, TENORS, state.pricingGrids.bonus, BONUS_CAPS)}</div>` : '',
+    state.showGrids.cpn ? `<div class="grid-section"><h4>CPN (${state.pricingCurrency})</h4>${gridHTML('Protection', CPN_PROTECTIONS, TENORS, state.pricingGrids.cpn)}</div>` : '',
+  ].filter(Boolean).join('')
+
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
+<title>Trade Architect Pro — ${state.clientName || 'Client'}</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',sans-serif;color:#1a1e2e;background:#fff;font-size:13px;line-height:1.6}
+.page{max-width:960px;margin:0 auto;padding:48px 40px}
+.cover-header{border-bottom:2px solid #0f172a;padding-bottom:24px;margin-bottom:32px;display:flex;justify-content:space-between;align-items:flex-end}
+.bank-name{font-size:22px;font-weight:700;color:#0f172a}
+.client-info{text-align:right;font-size:12px;color:#64748b}
+.client-name{font-size:15px;font-weight:600;color:#1a1e2e}
+h2{font-size:16px;font-weight:700;color:#0f172a;margin:28px 0 12px;padding-bottom:6px;border-bottom:1px solid #e2e8f0}
+h4{font-size:13px;font-weight:600;color:#334155;margin:0 0 10px}
+.thesis{color:#334155;font-size:13px;line-height:1.8;background:#f8fafc;padding:18px 20px;border-left:3px solid #0f172a;border-radius:0 6px 6px 0}
+.stock-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin:16px 0}
+.stock-card{border:1px solid #e2e8f0;border-radius:8px;padding:16px}
+.sc-header{display:flex;align-items:baseline;gap:8px;margin-bottom:10px}
+.sc-sym{font-size:16px;font-weight:700;color:#0f172a;font-family:'DM Mono',monospace}
+.sc-cur{font-size:10px;color:#94a3b8;background:#f1f5f9;padding:2px 6px;border-radius:3px}
+.sc-price{font-size:15px;font-weight:600;font-family:'DM Mono',monospace;margin-left:auto}
+.sc-chg{font-size:11px;font-family:'DM Mono',monospace;font-weight:600}
+.sc-chg.pos{color:#059669}.sc-chg.neg{color:#dc2626}
+.sc-bar-wrap{position:relative;height:4px;background:#e2e8f0;border-radius:2px;margin:8px 0}
+.sc-bar-fill{position:absolute;top:0;left:0;height:100%;background:linear-gradient(90deg,#dc2626,#f59e0b,#059669);border-radius:2px}
+.sc-bar-dot{position:absolute;top:-4px;width:12px;height:12px;background:#0f172a;border:2px solid #fff;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,.2);transform:translateX(-50%)}
+.sc-range{font-size:10px;color:#94a3b8;font-family:'DM Mono',monospace;display:flex;justify-content:space-between}
+.sc-iv{font-size:11px;color:#64748b;margin-top:6px}
+.sc-section{margin-top:10px;padding:8px 10px;border-radius:4px;font-size:12px}
+.sc-section strong{display:block;font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;margin-bottom:3px}
+.sc-bull{background:#f0fdf4;border-left:2px solid #059669}.sc-bull strong{color:#059669}
+.sc-bear{background:#fef2f2;border-left:2px solid #dc2626}.sc-bear strong{color:#dc2626}
+.sc-entry{background:#f0f9ff;border-left:2px solid #0284c7}.sc-entry strong{color:#0284c7}
+.prod-table{width:100%;border-collapse:collapse}
+.prod-table td{padding:9px 14px;font-size:13px;border-bottom:1px solid #f1f5f9}
+.prod-table td:first-child{color:#64748b;font-weight:500;width:45%}
+.prod-table td:last-child{font-family:'DM Mono',monospace;font-weight:600;color:#0f172a}
+.grid-section{margin-bottom:20px}
+.pg-table{width:100%;border-collapse:collapse;font-family:'DM Mono',monospace;font-size:11px}
+.pg-table th{background:#f8fafc;color:#64748b;padding:7px 10px;text-align:center;border:1px solid #e2e8f0;font-weight:600}
+.pg-table th:first-child{text-align:left}
+.pg-table td{border:1px solid #e2e8f0;padding:7px 10px;text-align:center;color:#1a1e2e}
+.row-label{text-align:left!important;color:#64748b;font-weight:500}
+.cap-note{font-size:9px;color:#94a3b8}
+.disclaimer{margin-top:40px;padding-top:16px;border-top:1px solid #e2e8f0;font-size:10px;color:#94a3b8;line-height:1.6}
+@media print{
+  body{font-size:11px}
+  .page{padding:20px;max-width:100%}
+  .stock-cards{grid-template-columns:repeat(3,1fr)}
+  .grid-section{page-break-inside:avoid}
+  .stock-card{page-break-inside:avoid}
+}
+</style></head><body>
+<div class="page">
+  <div class="cover-header">
+    <div>
+      <div class="bank-name">${state.bankName || 'Investment Bank'}</div>
+      <div style="font-size:11px;color:#94a3b8;margin-top:2px">Structured Products | Trade Architect Pro</div>
+    </div>
+    <div class="client-info">
+      <div class="client-name">${state.clientName || 'Institutional Client'}</div>
+      <div>${state.clientEmail || ''}</div>
+      <div>${new Date().toLocaleDateString('en-GB', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
+    </div>
+  </div>
+  <h2>Investment Thesis</h2>
+  <div class="thesis">${(state.thesis || '').replace(/\n/g, '<br/>')}</div>
+  <h2>Underlying Assets</h2>
+  <div class="stock-cards">${stockCards}</div>
+  <h2>Basket Dynamics</h2>
+  <div style="color:#334155;font-size:13px;line-height:1.8">${(state.basketDynamics || '').replace(/\n/g, '<br/>')}</div>
+  <h2>Product Parameters</h2>
+  <table class="prod-table"><tbody>${prodRows}</tbody></table>
+  ${gridsHTML ? `<h2>Indicative Pricing</h2>${gridsHTML}` : ''}
+  <div class="disclaimer">${state.disclaimer}</div>
+</div>
+</body></html>`
+}
+
+// ─── STYLES ──────────────────────────────────────────────────────────────────
+const FONT = "'DM Sans', 'Helvetica Neue', sans-serif"
+const MONO = "'DM Mono', 'Courier New', monospace"
+
+const css = `
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@300;400;500&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:#0a0c10;color:#e8eaf0;font-family:${FONT}}
+.tap-root{min-height:100vh;background:#0a0c10;color:#e8eaf0;font-family:${FONT}}
+.tap-topbar{display:flex;align-items:center;justify-content:space-between;padding:0 32px;height:58px;background:#0d1017;border-bottom:1px solid #1e2535;position:sticky;top:0;z-index:100}
+.tap-logo{display:flex;align-items:center;gap:10px}
+.tap-logo-icon{width:30px;height:30px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff}
+.tap-logo-text{font-size:14px;font-weight:600;letter-spacing:.03em;color:#f0f2f8}
+.tap-logo-sub{font-size:10px;color:#6b7a99;letter-spacing:.08em;text-transform:uppercase}
+.tap-steps{display:flex;gap:4px}
+.tap-step{padding:6px 18px;border-radius:4px;font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;color:#6b7a99;border:1px solid transparent;letter-spacing:.03em}
+.tap-step.active{background:#1a2035;color:#3b82f6;border-color:#2a3555}
+.tap-step:hover:not(.active){color:#a0aec0;background:#141824}
+.tap-step-num{font-family:${MONO};font-size:10px;opacity:.7;margin-right:6px}
+.tap-main{max-width:1200px;margin:0 auto;padding:32px 24px}
+.tap-section-title{font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:#4a5578;margin-bottom:20px;display:flex;align-items:center;gap:8px}
+.tap-section-title::after{content:'';flex:1;height:1px;background:#1a2035}
+.tap-card{background:#0d1017;border:1px solid #1a2035;border-radius:10px;padding:24px}
+.tap-card+.tap-card{margin-top:16px}
+.tap-form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}
+.tap-field{display:flex;flex-direction:column;gap:6px}
+.tap-label{font-size:11px;font-weight:500;color:#4a5578;letter-spacing:.05em;text-transform:uppercase}
+.tap-input{background:#141824;border:1px solid #1e2535;border-radius:6px;color:#e8eaf0;font-family:${FONT};font-size:13px;padding:9px 12px;outline:none;transition:border-color .15s}
+.tap-input:focus{border-color:#3b82f6}
+.tap-input::placeholder{color:#3a4460}
+.tap-select{background:#141824;border:1px solid #1e2535;border-radius:6px;color:#e8eaf0;font-family:${FONT};font-size:13px;padding:9px 12px;outline:none;cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236b7a99'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:28px}
+.tap-textarea{background:#141824;border:1px solid #1e2535;border-radius:6px;color:#e8eaf0;font-family:${FONT};font-size:13px;padding:10px 12px;outline:none;resize:vertical;line-height:1.6;transition:border-color .15s;min-height:80px}
+.tap-textarea:focus{border-color:#3b82f6}
+.tap-textarea::placeholder{color:#3a4460}
+.tap-ticker-row{display:flex;gap:10px;align-items:flex-end;margin-bottom:12px}
+.tap-ticker-sym{flex:2}
+.tap-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;border:none;font-family:${FONT};letter-spacing:.02em;white-space:nowrap}
+.tap-btn-primary{background:#3b82f6;color:#fff}
+.tap-btn-primary:hover{background:#2563eb}
+.tap-btn-secondary{background:#1a2035;color:#a0aec0;border:1px solid #1e2535}
+.tap-btn-secondary:hover{background:#1e2540;color:#e8eaf0}
+.tap-btn-ai{background:linear-gradient(135deg,#1a1040,#1a2035);color:#a78bfa;border:1px solid #2d2060;font-size:11px;padding:5px 12px}
+.tap-btn-ai:hover{background:linear-gradient(135deg,#221560,#1e2540)}
+.tap-btn-sm{padding:6px 12px;font-size:11px}
+.tap-btn:disabled{opacity:.5;cursor:not-allowed}
+.tap-fetch-btn{padding:9px 14px;background:#141824;border:1px solid #1e2535;border-radius:6px;color:#6b7a99;cursor:pointer;font-size:12px;font-family:${FONT};white-space:nowrap;transition:all .15s}
+.tap-fetch-btn:hover{color:#3b82f6;border-color:#3b82f6}
+.tap-mdata{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px}
+.tap-mdata-chip{background:#141824;border:1px solid #1a2035;border-radius:4px;padding:4px 10px;font-size:11px;color:#6b7a99;font-family:${MONO}}
+.tap-mdata-chip span{color:#e8eaf0;font-weight:500}
+.tap-mdata-chip.pos{color:#34d399}
+.tap-mdata-chip.neg{color:#f87171}
+.chip-val{color:#e8eaf0!important}
+.tap-stock-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
+.tap-stock-card{background:#0d1017;border:1px solid #1a2035;border-radius:10px;padding:20px;display:flex;flex-direction:column;gap:14px}
+.tap-stock-symbol{font-size:16px;font-weight:700;color:#f0f2f8;font-family:${MONO}}
+.tap-stock-price{font-size:20px;font-weight:600;color:#e8eaf0;font-family:${MONO}}
+.tap-stock-change{font-size:12px;font-weight:500;font-family:${MONO}}
+.tap-stock-change.pos{color:#34d399}
+.tap-stock-change.neg{color:#f87171}
+.tap-52w{display:flex;flex-direction:column;gap:4px}
+.tap-52w-bar-wrap{position:relative;height:4px;background:#1a2035;border-radius:2px}
+.tap-52w-bar-fill{position:absolute;top:0;left:0;height:100%;background:linear-gradient(90deg,#f87171,#facc15,#34d399);border-radius:2px}
+.tap-52w-marker{position:absolute;top:-4px;width:12px;height:12px;background:#fff;border:2px solid #3b82f6;border-radius:50%;transform:translateX(-50%)}
+.tap-52w-labels{display:flex;justify-content:space-between;font-size:10px;color:#4a5578;font-family:${MONO};margin-top:2px}
+.tap-wb-block{background:#0d1017;border:1px solid #1a2035;border-radius:10px;overflow:hidden}
+.tap-wb-block-header{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;border-bottom:1px solid #141824;background:#0a0c10}
+.tap-wb-block-title{font-size:12px;font-weight:600;color:#a0aec0;letter-spacing:.05em;display:flex;align-items:center;gap:8px}
+.tap-wb-block-body{padding:20px}
+.tap-prod-table{width:100%;border-collapse:collapse}
+.tap-prod-table td{padding:9px 14px;font-size:13px;border-bottom:1px solid #141824}
+.tap-prod-table td:first-child{color:#6b7a99;width:45%;font-weight:500}
+.tap-prod-table td:last-child{color:#e8eaf0;font-family:${MONO}}
+.tap-prod-table tr:last-child td{border-bottom:none}
+.tap-grid-wrap{overflow-x:auto}
+.tap-pg{width:100%;border-collapse:collapse;font-family:${MONO};font-size:12px}
+.tap-pg th{background:#0a0c10;color:#4a5578;font-weight:500;padding:8px 12px;text-align:center;border:1px solid #141824}
+.tap-pg th:first-child{text-align:left}
+.tap-pg td{border:1px solid #141824;padding:0}
+.tap-pg td input{width:100%;background:transparent;border:none;color:#e8eaf0;text-align:center;padding:7px 8px;font-family:${MONO};font-size:12px;outline:none;transition:background .1s}
+.tap-pg td input:focus{background:#1a2035}
+.tap-pg td:first-child input{text-align:left;padding-left:12px;color:#6b7a99}
+.tap-pg-label{background:#0a0c10;color:#6b7a99;padding:7px 12px;font-size:11px}
+.tap-dropzone{border:2px dashed #1e2535;border-radius:10px;padding:48px 24px;text-align:center;cursor:pointer;transition:all .2s;color:#4a5578}
+.tap-dropzone:hover,.tap-dropzone.drag{border-color:#3b82f6;color:#3b82f6;background:#0d1220}
+.tap-dropzone-icon{font-size:32px;margin-bottom:8px}
+.tap-dropzone-text{font-size:13px}
+.tap-dropzone-sub{font-size:11px;margin-top:4px;opacity:.7}
+.tap-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;display:flex;align-items:center;justify-content:center;padding:24px}
+.tap-modal{background:#0d1017;border:1px solid #1e2535;border-radius:12px;max-width:860px;width:100%;max-height:85vh;display:flex;flex-direction:column}
+.tap-modal-header{display:flex;align-items:center;justify-content:space-between;padding:16px 24px;border-bottom:1px solid #1a2035}
+.tap-modal-title{font-size:14px;font-weight:600;color:#f0f2f8}
+.tap-modal-body{padding:24px;overflow-y:auto;flex:1}
+.tap-modal-footer{padding:16px 24px;border-top:1px solid #1a2035;display:flex;gap:10px;justify-content:flex-end}
+.tap-export-preview{background:#080a0e;border:1px solid #141824;border-radius:6px;padding:20px;font-family:${MONO};font-size:12px;color:#a0aec0;white-space:pre-wrap;max-height:400px;overflow-y:auto;line-height:1.7}
+.tap-nav{display:flex;justify-content:space-between;align-items:center;margin-top:32px;padding-top:24px;border-top:1px solid #1a2035}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spin{animation:spin .8s linear infinite;display:inline-block}
+.tap-checkbox-row{display:flex;align-items:center;gap:8px;font-size:13px;color:#a0aec0;cursor:pointer}
+.tap-checkbox-row input{accent-color:#3b82f6;width:14px;height:14px;cursor:pointer}
+.tap-tag{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:3px;font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase}
+.tap-tag-blue{background:#0d1d40;color:#60a5fa}
+.tap-tag-green{background:#0a2010;color:#34d399}
+.tap-tag-purple{background:#1a0d40;color:#a78bfa}
+.tap-divider{height:1px;background:#1a2035;margin:20px 0}
+.tap-grid-section{margin-bottom:28px}
+.tap-grid-section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.tap-grid-section-title{font-size:13px;font-weight:600;color:#a0aec0;display:flex;align-items:center;gap:8px}
+.tap-export-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:24px}
+.tap-export-card{flex:1;min-width:200px;background:#0d1017;border:1px solid #1a2035;border-radius:10px;padding:20px;cursor:pointer;transition:all .2s;text-align:center}
+.tap-export-card:hover{border-color:#3b82f6;background:#0d1220}
+.tap-export-card-icon{font-size:28px;margin-bottom:8px}
+.tap-export-card-title{font-size:13px;font-weight:600;color:#e8eaf0;margin-bottom:4px}
+.tap-export-card-desc{font-size:11px;color:#4a5578}
+.tap-dot{width:6px;height:6px;border-radius:50%;display:inline-block}
+.tap-dot-green{background:#34d399;box-shadow:0 0 6px #34d399}
+.tap-dot-gray{background:#4a5578}
+`
+
+function Spinner() { return <span className="spin">⟳</span> }
+
+function Toast({ msg, onClose }) {
+  useEffect(() => { const t = setTimeout(onClose, 2500); return () => clearTimeout(t) }, [onClose])
+  return <div className="tap-toast">✓ {msg}</div>
+}
+
+function PricingGrid({ label, rowLabels, colLabels, grid, onChange, note }) {
+  return (
+    <div className="tap-grid-wrap">
+      {note && <div style={{ fontSize: 11, color: '#4a5578', marginBottom: 8 }}>{note}</div>}
+      <table className="tap-pg">
+        <thead><tr><th>{label}</th>{colLabels.map(c => <th key={c}>{c}</th>)}</tr></thead>
+        <tbody>
+          {rowLabels.map((row, ri) => (
+            <tr key={row}>
+              <td><div className="tap-pg-label">{row}</div></td>
+              {colLabels.map((_, ci) => (
+                <td key={ci}><input value={grid?.[ri]?.[ci] ?? ''} onChange={e => onChange(ri, ci, e.target.value)} placeholder="—" /></td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+export default function TradeArchitectPro() {
+  const [state, setState] = useState(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const saved = localStorage.getItem('tap_state_v3')
+        if (saved) return { ...DEFAULT_STATE, ...JSON.parse(saved) }
+      }
+    } catch {}
+    return DEFAULT_STATE
+  })
+  const [modal, setModal] = useState(null)
+  const [toast, setToast] = useState(null)
+  const [drag, setDrag] = useState(false)
+  const fileRef = useRef()
+
+  useEffect(() => {
+    try { localStorage.setItem('tap_state_v3', JSON.stringify(state)) } catch {}
+  }, [state])
+
+  const set = useCallback((updater) => setState(prev => {
+    const next = typeof updater === 'function' ? updater(prev) : updater
+    return { ...prev, ...next }
+  }), [])
+
+  const showToast = (msg) => setToast(msg)
+
+  const fallbackCopy = (text, type) => {
+    const ta = document.createElement('textarea')
+    ta.value = text
+    ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0;'
+    document.body.appendChild(ta)
+    ta.focus(); ta.select()
+    try { document.execCommand('copy'); showToast(type === 'email' ? 'Email text copied' : 'HTML copied to clipboard') }
+    catch { showToast('Copy failed — select all text manually') }
+    document.body.removeChild(ta)
+  }
+
+  const copyToClipboard = (text, type) => {
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(text)
+        .then(() => showToast(type === 'email' ? 'Email text copied' : 'HTML copied to clipboard'))
+        .catch(() => fallbackCopy(text, type))
+    } else { fallbackCopy(text, type) }
+  }
+
+  const fetchTicker = useCallback(async (idx) => {
+    const sym = state.tickers[idx]?.symbol
+    if (!sym) return
+    setState(prev => { const t = [...prev.tickers]; t[idx] = { ...t[idx], loading: true, data: null }; return { ...prev, tickers: t } })
+    try {
+      const data = await fetchMarketData(sym)
+      setState(prev => { const t = [...prev.tickers]; t[idx] = { ...t[idx], loading: false, data }; return { ...prev, tickers: t } })
+    } catch {
+      setState(prev => { const t = [...prev.tickers]; t[idx] = { ...t[idx], loading: false }; return { ...prev, tickers: t } })
+    }
+  }, [state.tickers])
+
+  const fetchAll = useCallback(async () => {
+    for (let i = 0; i < 3; i++) { if (state.tickers[i]?.symbol) fetchTicker(i) }
+  }, [state.tickers, fetchTicker])
+
+  const aiRefresh = useCallback(async (field) => {
+    setState(prev => ({ ...prev, aiLoading: { ...prev.aiLoading, [field]: true } }))
+    const syms = state.tickers.filter(t => t.symbol).map(t => t.symbol).join(', ')
+    const tickerField = field.match(/^(bull|bear|entry)_(\d)$/)
+    try {
+      let prompt
+      if (tickerField) {
+        const [, type, idx] = tickerField
+        const sym = state.tickers[parseInt(idx)]?.symbol
+        const typeMap = { bull: 'bull case (3–4 sentences, positive scenario)', bear: 'bear case (3–4 sentences, downside risks)', entry: 'entry note (2–3 sentences, technical entry rationale)' }
+        prompt = `Write a professional ${typeMap[type]} for ${sym} for an institutional pitch deck. Be specific and use financial terminology. No disclaimers.`
+      } else if (field === 'thesis') {
+        prompt = `You are a senior structured products analyst at ${state.bankName || 'a private bank'}. Write a professional, institutional-grade investment thesis (4–6 sentences) for a basket of stocks: ${syms}. Focus on macro drivers, sector positioning, and rationale for a structured product overlay. No disclaimers. Pure thesis prose.`
+      } else {
+        prompt = `Analyse the basket dynamics for: ${syms}. In 3–5 professional sentences explain: correlation characteristics, macro drivers, diversification merits, and why these stocks work well together in a worst-of structured product. Institutional tone.`
+      }
+      const result = await callClaude(prompt)
+      if (tickerField) {
+        const [, type, idx] = tickerField
+        const keyMap = { bull: 'bullCase', bear: 'bearCase', entry: 'entryNote' }
+        setState(prev => {
+          const tickers = [...prev.tickers]
+          tickers[parseInt(idx)] = { ...tickers[parseInt(idx)], [keyMap[type]]: result.trim() }
+          return { ...prev, tickers, aiLoading: { ...prev.aiLoading, [field]: false } }
+        })
+      } else {
+        setState(prev => ({ ...prev, [field]: result.trim(), aiLoading: { ...prev.aiLoading, [field]: false } }))
+      }
+    } catch {
+      setState(prev => ({ ...prev, aiLoading: { ...prev.aiLoading, [field]: false } }))
+      showToast('AI error — check your API key in Vercel settings')
+    }
+  }, [state])
+
+  const updateGrid = useCallback((gridName, ri, ci, val) => {
+    setState(prev => {
+      const grids = { ...prev.pricingGrids }
+      grids[gridName] = grids[gridName].map((row, r) => r === ri ? row.map((cell, c) => c === ci ? val : cell) : row)
+      return { ...prev, pricingGrids: grids }
+    })
+  }, [])
+
+  const handleFileDrop = useCallback((e) => {
+    e.preventDefault(); setDrag(false)
+    const file = e.dataTransfer?.files?.[0] || e.target?.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      const rows = ev.target.result.trim().split(/\r?\n/).map(r => r.split(/[,\t]/))
+      const grid = Array(4).fill(null).map((_, ri) => Array(4).fill(null).map((_, ci) => rows[ri + 1]?.[ci + 1] || ''))
+      setState(prev => ({ ...prev, pricingGrids: { ...prev.pricingGrids, rc: grid } }))
+      showToast('CSV imported into RC grid')
+    }
+    reader.readAsText(file)
+  }, [])
+
+  const buildEmailExport = () => {
+    const activeTickers = state.tickers.filter(t => t.symbol)
+    let txt = `INVESTMENT PITCH — ${state.bankName || ''}\nClient: ${state.clientName || ''} | ${state.clientEmail || ''}\nDate: ${new Date().toLocaleDateString('en-GB')}\n\n`
+    txt += `${'='.repeat(60)}\nINVESTMENT THESIS\n${'='.repeat(60)}\n${state.thesis || ''}\n\n`
+    txt += `${'='.repeat(60)}\nUNDERLYING ASSETS\n${'='.repeat(60)}\n`
+    activeTickers.forEach(t => {
+      txt += `\n${t.symbol} — ${t.data ? fmt(t.data.price) : 'N/A'}\n`
+      if (t.bullCase) txt += `  Bull: ${t.bullCase}\n`
+      if (t.bearCase) txt += `  Bear: ${t.bearCase}\n`
+      if (t.entryNote) txt += `  Entry: ${t.entryNote}\n`
+    })
+    txt += `\n${'='.repeat(60)}\nPRODUCT PARAMETERS\n${'='.repeat(60)}\n`
+    ;(state.productRows || []).forEach(r => { txt += `  ${(r.key || '').padEnd(24)}: ${r.val || ''}\n` })
+    txt += '\n'
+    if (state.showGrids.rc) txt += asciiTable('AUTOCALL RC', RC_STRIKES, TENORS, state.pricingGrids.rc) + '\n'
+    if (state.showGrids.snowball) txt += asciiTable('SNOWBALL', SNOWBALL_BARRIERS, state.pricingGrids.snowball) + '\n'
+    if (state.showGrids.bonus) txt += asciiTable('BONUS NOTE', BONUS_BARRIERS, TENORS, state.pricingGrids.bonus) + '\n'
+    if (state.showGrids.cpn) txt += asciiTable('CPN', CPN_PROTECTIONS, TENORS, state.pricingGrids.cpn) + '\n'
+    txt += `\n${'─'.repeat(60)}\n${state.disclaimer}`
+    return txt
+  }
+
+  const activeTickers = state.tickers.filter(t => t.symbol && t.data)
+
+  return (
+    <div className="tap-root">
+      <style>{css}</style>
+
+      <div className="tap-topbar">
+        <div className="tap-logo">
+          <div className="tap-logo-icon">TA</div>
+          <div>
+            <div className="tap-logo-text">Trade Architect Pro</div>
+            <div className="tap-logo-sub">{state.bankName || 'Structured Products'}</div>
+          </div>
+        </div>
+        <div className="tap-steps">
+          {['Market Data', 'Workbench', 'Pricing', 'Export'].map((s, i) => (
+            <div key={i} className={`tap-step ${state.step === i + 1 ? 'active' : ''}`} onClick={() => set({ step: i + 1 })}>
+              <span className="tap-step-num">0{i + 1}</span>{s}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="tap-main">
+        {state.step === 1 && (
+          <div>
+            <div className="tap-section-title">Client & Bank Configuration</div>
+            <div className="tap-card">
+              <div className="tap-form-grid">
+                {[['bankName', 'Bank / Firm Name'], ['clientName', 'Client Name'], ['clientEmail', 'Client Email']].map(([k, label]) => (
+                  <div className="tap-field" key={k}>
+                    <label className="tap-label">{label}</label>
+                    <input className="tap-input" value={state[k]} onChange={e => set({ [k]: e.target.value })} placeholder={label} />
+                  </div>
+                ))}
+                <div className="tap-field" style={{ gridColumn: '1/-1' }}>
+                  <label className="tap-label">Disclaimer</label>
+                  <textarea className="tap-textarea" value={state.disclaimer} onChange={e => set({ disclaimer: e.target.value })} rows={2} />
+                </div>
+              </div>
+            </div>
+
+            <div className="tap-section-title" style={{ marginTop: 28 }}>Underlying Basket</div>
+            <div className="tap-card">
+              {state.tickers.map((t, i) => (
+                <div key={i}>
+                  {i > 0 && <div className="tap-divider" />}
+                  <div className="tap-ticker-row">
+                    <div className="tap-field tap-ticker-sym">
+                      <label className="tap-label">Ticker {i + 1}</label>
+                      <input className="tap-input" value={t.symbol}
+                        onChange={e => setState(prev => { const tickers = [...prev.tickers]; tickers[i] = { ...tickers[i], symbol: e.target.value.toUpperCase() }; return { ...prev, tickers } })}
+                        placeholder="e.g. AAPL" style={{ fontFamily: MONO, fontWeight: 600 }} />
+                    </div>
+                    <button className="tap-fetch-btn" onClick={() => fetchTicker(i)} disabled={!t.symbol}>
+                      {t.loading ? <Spinner /> : 'Fetch ↓'}
+                    </button>
+                  </div>
+                  {t.data && (
+                    <div className="tap-mdata">
+                      <div className="tap-mdata-chip"><span className="chip-val">{fmt(t.data.price)}</span> Price</div>
+                      <div className={`tap-mdata-chip ${t.data.change >= 0 ? 'pos' : 'neg'}`}>{t.data.change >= 0 ? '▲' : '▼'} {fmt(Math.abs(t.data.change))}%</div>
+                      <div className="tap-mdata-chip">52W <span className="chip-val">{fmt(t.data.low52)} – {fmt(t.data.high52)}</span></div>
+                      <div className="tap-mdata-chip">IV <span className="chip-val">{fmt(t.data.iv)}%</span></div>
+                    </div>
+                  )}
+                  {t.loading && <div style={{ fontSize: 12, color: '#4a5578', marginTop: 8 }}>Fetching market data…</div>}
+                </div>
+              ))}
+              <div className="tap-divider" />
+              <button className="tap-btn tap-btn-primary" onClick={fetchAll}>↓ Fetch All Tickers</button>
+            </div>
+            <div className="tap-nav">
+              <div />
+              <button className="tap-btn tap-btn-primary" onClick={() => set({ step: 2 })}>Continue to Workbench →</button>
+            </div>
+          </div>
+        )}
+
+        {state.step === 2 && (
+          <div>
+            <div className="tap-wb-block" style={{ marginBottom: 16 }}>
+              <div className="tap-wb-block-header">
+                <div className="tap-wb-block-title">📄 Investment Thesis</div>
+                <button className="tap-btn tap-btn-ai" onClick={() => aiRefresh('thesis')} disabled={state.aiLoading?.thesis}>
+                  {state.aiLoading?.thesis ? <><Spinner /> Generating…</> : '✨ AI Refresh'}
+                </button>
+              </div>
+              <div className="tap-wb-block-body">
+                <textarea className="tap-textarea" style={{ minHeight: 120, width: '100%' }} value={state.thesis} onChange={e => set({ thesis: e.target.value })} placeholder="Enter or generate an investment thesis for this basket…" />
+              </div>
+            </div>
+
+            <div className="tap-wb-block" style={{ marginBottom: 16 }}>
+              <div className="tap-wb-block-header">
+                <div className="tap-wb-block-title">📊 Stock Cards</div>
+                <span className="tap-tag tap-tag-blue">{activeTickers.length} Active</span>
+              </div>
+              <div className="tap-wb-block-body">
+                {activeTickers.length === 0 && <div style={{ color: '#4a5578', fontSize: 13, textAlign: 'center', padding: '20px 0' }}>No market data loaded. Go to Step 1 and fetch tickers.</div>}
+                <div className="tap-stock-cards">
+                  {state.tickers.map((t, i) => {
+                    if (!t.symbol || !t.data) return null
+                    const p = t.data
+                    const pct = pos52w(p.price, p.low52, p.high52)
+                    return (
+                      <div key={i} className="tap-stock-card">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                          <div><div className="tap-stock-symbol">{t.symbol}</div><div style={{ fontSize: 11, color: '#4a5578', marginTop: 2 }}>{t.currency}</div></div>
+                          <div style={{ textAlign: 'right' }}>
+                            <div className="tap-stock-price">{fmt(p.price)}</div>
+                            <div className={`tap-stock-change ${p.change >= 0 ? 'pos' : 'neg'}`}>{p.change >= 0 ? '▲' : '▼'} {fmt(Math.abs(p.change))}%</div>
+                          </div>
+                        </div>
+                        <div className="tap-52w">
+                          <div className="tap-52w-bar-wrap">
+                            <div className="tap-52w-bar-fill" style={{ width: `${pct}%` }} />
+                            <div className="tap-52w-marker" style={{ left: `${pct}%` }} />
+                          </div>
+                          <div className="tap-52w-labels"><span>{fmt(p.low52)} L</span><span>52W Range</span><span>H {fmt(p.high52)}</span></div>
+                        </div>
+                        <div style={{ fontSize: 11, color: '#4a5578' }}>IV <span style={{ color: '#a0aec0', fontFamily: MONO }}>{fmt(p.iv)}%</span></div>
+                        <div className="tap-divider" />
+                        {[{ key: 'bullCase', label: '🟢 Bull Case', field: `bull_${i}` }, { key: 'bearCase', label: '🔴 Bear Case', field: `bear_${i}` }, { key: 'entryNote', label: '📍 Entry Note', field: `entry_${i}` }].map(({ key, label, field }) => (
+                          <div key={key} style={{ marginBottom: 10 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                              <label className="tap-label">{label}</label>
+                              <button className="tap-btn tap-btn-ai" style={{ fontSize: 10 }} onClick={() => aiRefresh(field)} disabled={state.aiLoading?.[field]}>
+                                {state.aiLoading?.[field] ? <Spinner /> : '✨'}
+                              </button>
+                            </div>
+                            <textarea className="tap-textarea" style={{ minHeight: 60, fontSize: 12 }} value={t[key]}
+                              onChange={e => setState(prev => { const tickers = [...prev.tickers]; tickers[i] = { ...tickers[i], [key]: e.target.value }; return { ...prev, tickers } })}
+                              placeholder={`${label.split(' ').slice(1).join(' ')}…`} />
+                          </div>
+                        ))}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+
+            <div className="tap-wb-block" style={{ marginBottom: 16 }}>
+              <div className="tap-wb-block-header">
+                <div className="tap-wb-block-title">🔗 Basket Dynamics</div>
+                <button className="tap-btn tap-btn-ai" onClick={() => aiRefresh('basketDynamics')} disabled={state.aiLoading?.basketDynamics}>
+                  {state.aiLoading?.basketDynamics ? <><Spinner /> Generating…</> : '✨ AI Refresh'}
+                </button>
+              </div>
+              <div className="tap-wb-block-body">
+                <textarea className="tap-textarea" style={{ minHeight: 100, width: '100%' }} value={state.basketDynamics} onChange={e => set({ basketDynamics: e.target.value })} placeholder="Describe correlation characteristics, macro drivers, and diversification merits…" />
+              </div>
+            </div>
+
+            <div className="tap-wb-block">
+              <div className="tap-wb-block-header">
+                <div className="tap-wb-block-title">⚙️ Product Parameters</div>
+                <span className="tap-tag tap-tag-purple">Structured Product</span>
+              </div>
+              <div className="tap-wb-block-body">
+                <div style={{ fontSize: 11, color: '#4a5578', marginBottom: 12 }}>Both parameter name and value are editable — customise freely.</div>
+                <div style={{ border: '1px solid #1a2035', borderRadius: 8, overflow: 'hidden' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '40px 1fr 1fr', background: '#0a0c10', borderBottom: '1px solid #1a2035', padding: '7px 0' }}>
+                    <div />
+                    <div style={{ fontSize: 10, fontWeight: 600, color: '#4a5578', letterSpacing: '0.08em', textTransform: 'uppercase', paddingLeft: 12 }}>Parameter</div>
+                    <div style={{ fontSize: 10, fontWeight: 600, color: '#4a5578', letterSpacing: '0.08em', textTransform: 'uppercase', paddingLeft: 12 }}>Value</div>
+                  </div>
+                  {state.productRows.map((row, i) => (
+                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '40px 1fr 1fr', borderBottom: i < state.productRows.length - 1 ? '1px solid #141824' : 'none', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontSize: 10, color: '#2a3555', fontFamily: MONO }}>{String(i + 1).padStart(2, '0')}</span></div>
+                      <input className="tap-input" style={{ border: 'none', borderRight: '1px solid #141824', borderRadius: 0, fontSize: 12, color: '#a0aec0', background: 'transparent', padding: '9px 12px' }}
+                        value={row.key} placeholder="Parameter name…"
+                        onChange={e => setState(prev => { const productRows = [...prev.productRows]; productRows[i] = { ...productRows[i], key: e.target.value }; return { ...prev, productRows } })} />
+                      <input className="tap-input" style={{ border: 'none', borderRadius: 0, fontSize: 12, fontFamily: MONO, fontWeight: 600, color: '#e8eaf0', background: 'transparent', padding: '9px 12px' }}
+                        value={row.val} placeholder="Value…"
+                        onChange={e => setState(prev => { const productRows = [...prev.productRows]; productRows[i] = { ...productRows[i], val: e.target.value }; return { ...prev, productRows } })} />
+                    </div>
+                  ))}
+                </div>
+                <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                  <button className="tap-btn tap-btn-secondary tap-btn-sm" onClick={() => setState(prev => ({ ...prev, productRows: [...prev.productRows, { key: '', val: '' }] }))}>+ Add Row</button>
+                  {state.productRows.length > 1 && <button className="tap-btn tap-btn-secondary tap-btn-sm" style={{ color: '#f87171' }} onClick={() => setState(prev => ({ ...prev, productRows: prev.productRows.slice(0, -1) }))}>− Remove Last</button>}
+                </div>
+              </div>
+            </div>
+
+            <div className="tap-nav">
+              <button className="tap-btn tap-btn-secondary" onClick={() => set({ step: 1 })}>← Back</button>
+              <button className="tap-btn tap-btn-primary" onClick={() => set({ step: 3 })}>Continue to Pricing →</button>
+            </div>
+          </div>
+        )}
+
+        {state.step === 3 && (
+          <div>
+            <div className="tap-section-title">Pricing Currency</div>
+            <div className="tap-card" style={{ marginBottom: 24, padding: '16px 20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                <div style={{ fontSize: 12, color: '#6b7a99' }}>All pricing grids expressed in:</div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {CURRENCIES.map(c => (
+                    <button key={c} className="tap-btn" style={{ padding: '5px 16px', fontSize: 12, fontFamily: MONO, fontWeight: 600, background: state.pricingCurrency === c ? '#3b82f6' : '#141824', color: state.pricingCurrency === c ? '#fff' : '#6b7a99', border: `1px solid ${state.pricingCurrency === c ? '#3b82f6' : '#1e2535'}` }} onClick={() => set({ pricingCurrency: c })}>{c}</button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="tap-section-title">CSV / TSV Import</div>
+            <div className={`tap-dropzone ${drag ? 'drag' : ''}`} style={{ marginBottom: 28 }}
+              onDragOver={e => { e.preventDefault(); setDrag(true) }} onDragLeave={() => setDrag(false)}
+              onDrop={handleFileDrop} onClick={() => fileRef.current?.click()}>
+              <div className="tap-dropzone-icon">📂</div>
+              <div className="tap-dropzone-text">Drop CSV / TSV pricing file here or click to browse</div>
+              <div className="tap-dropzone-sub">Data will populate the RC grid (4×4 structure expected)</div>
+              <input ref={fileRef} type="file" accept=".csv,.tsv,.txt" style={{ display: 'none' }} onChange={handleFileDrop} />
+            </div>
+
+            {[
+              { key: 'rc', title: 'Autocall RC', label: 'Strike', rows: RC_STRIKES, note: 'Coupon values by Strike × Tenor' },
+              { key: 'snowball', title: 'Snowball', label: 'Barrier/Coupon', rows: SNOWBALL_BARRIERS, note: 'Indicative coupons by Barrier/Coupon × Tenor' },
+              { key: 'bonus', title: 'Bonus Note', label: 'Barrier', rows: BONUS_BARRIERS, note: null, caps: BONUS_CAPS },
+              { key: 'cpn', title: 'Capital Protected Note (CPN)', label: 'Protection', rows: CPN_PROTECTIONS, note: 'Upside participation by protection × Tenor' },
+            ].map(({ key, title, label, rows, note, caps }) => (
+              <div key={key} className="tap-grid-section">
+                <div className="tap-grid-section-header">
+                  <div className="tap-grid-section-title">{title}</div>
+                  <label className="tap-checkbox-row">
+                    <input type="checkbox" checked={state.showGrids[key]} onChange={e => set({ showGrids: { ...state.showGrids, [key]: e.target.checked } })} />
+                    Include in Export
+                  </label>
+                </div>
+                <div className="tap-card" style={{ padding: 16 }}>
+                  {caps
+                    ? <div><div style={{ fontSize: 11, color: '#4a5578', marginBottom: 10 }}>Fixed caps by tenor: {Object.entries(caps).map(([t, c]) => `${t}: ${c}`).join(' | ')}</div><PricingGrid label={label} rowLabels={rows} colLabels={TENORS} grid={state.pricingGrids[key]} onChange={(r, c, v) => updateGrid(key, r, c, v)} /></div>
+                    : <PricingGrid label={label} rowLabels={rows} colLabels={TENORS} grid={state.pricingGrids[key]} onChange={(r, c, v) => updateGrid(key, r, c, v)} note={note} />
+                  }
+                </div>
+              </div>
+            ))}
+
+            <div className="tap-nav">
+              <button className="tap-btn tap-btn-secondary" onClick={() => set({ step: 2 })}>← Back</button>
+              <button className="tap-btn tap-btn-primary" onClick={() => set({ step: 4 })}>Continue to Export →</button>
+            </div>
+          </div>
+        )}
+
+        {state.step === 4 && (
+          <div>
+            <div className="tap-section-title">Export Deliverables</div>
+            <div className="tap-export-row">
+              <div className="tap-export-card" onClick={() => setModal({ type: 'email', content: buildEmailExport() })}>
+                <div className="tap-export-card-icon">✉️</div>
+                <div className="tap-export-card-title">Email Export</div>
+                <div className="tap-export-card-desc">Plain text with ASCII pricing tables. Copy and paste into any email client.</div>
+              </div>
+              <div className="tap-export-card" onClick={() => setModal({ type: 'pdf', content: buildHTMLExport(state) })}>
+                <div className="tap-export-card-icon">🖨️</div>
+                <div className="tap-export-card-title">Print to PDF</div>
+                <div className="tap-export-card-desc">Live preview of the white-paper. Copy HTML → save as .html → open in browser → Ctrl+P → Save as PDF.</div>
+              </div>
+              <div className="tap-export-card" onClick={() => setModal({ type: 'html', content: buildHTMLExport(state) })}>
+                <div className="tap-export-card-icon">📋</div>
+                <div className="tap-export-card-title">Copy HTML Source</div>
+                <div className="tap-export-card-desc">Copy the full self-contained HTML to save and print manually.</div>
+              </div>
+            </div>
+
+            <div className="tap-section-title" style={{ marginTop: 8 }}>Pitch Summary</div>
+            <div className="tap-card">
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 32px' }}>
+                <div>
+                  <div className="tap-label" style={{ marginBottom: 8 }}>Client</div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: '#f0f2f8', marginBottom: 4 }}>{state.clientName || '—'}</div>
+                  <div style={{ fontSize: 12, color: '#4a5578' }}>{state.clientEmail || ''}</div>
+                </div>
+                <div>
+                  <div className="tap-label" style={{ marginBottom: 8 }}>Active Underlyings</div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    {activeTickers.map(t => <span key={t.symbol} className="tap-tag tap-tag-blue">{t.symbol}</span>)}
+                    {activeTickers.length === 0 && <span style={{ color: '#4a5578', fontSize: 13 }}>No data loaded</span>}
+                  </div>
+                </div>
+                <div style={{ marginTop: 16 }}>
+                  <div className="tap-label" style={{ marginBottom: 8 }}>Product Parameters</div>
+                  <table className="tap-prod-table"><tbody>{(state.productRows || []).slice(0, 3).map((r, i) => <tr key={i}><td>{r.key}</td><td>{r.val}</td></tr>)}</tbody></table>
+                </div>
+                <div style={{ marginTop: 16 }}>
+                  <div className="tap-label" style={{ marginBottom: 8 }}>Pricing Grids in Export</div>
+                  {Object.entries(state.showGrids).map(([k, v]) => (
+                    <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4, fontSize: 12, color: v ? '#a0aec0' : '#4a5578' }}>
+                      <span className={`tap-dot ${v ? 'tap-dot-green' : 'tap-dot-gray'}`} />
+                      {{ rc: 'Autocall RC', snowball: 'Snowball', bonus: 'Bonus Note', cpn: 'CPN' }[k]}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="tap-nav">
+              <button className="tap-btn tap-btn-secondary" onClick={() => set({ step: 3 })}>← Back</button>
+              <button className="tap-btn tap-btn-secondary" onClick={() => { if (window.confirm('Reset all data?')) { localStorage.removeItem('tap_state_v3'); setState(DEFAULT_STATE) } }}>🗑 Reset</button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {modal && (
+        <div className="tap-modal-overlay" onClick={e => e.target === e.currentTarget && setModal(null)}>
+          <div className="tap-modal" style={modal.type === 'pdf' ? { maxWidth: '960px', maxHeight: '92vh' } : {}}>
+            <div className="tap-modal-header">
+              <div className="tap-modal-title">
+                {modal.type === 'email' ? '✉️ Email Export' : modal.type === 'pdf' ? '📄 PDF Preview' : '📋 HTML Source'}
+              </div>
+              <button className="tap-btn tap-btn-secondary tap-btn-sm" onClick={() => setModal(null)}>✕ Close</button>
+            </div>
+            <div className="tap-modal-body" style={modal.type === 'pdf' ? { padding: 0, flex: 1, overflow: 'hidden' } : {}}>
+              {modal.type === 'email' && <pre className="tap-export-preview">{modal.content}</pre>}
+              {modal.type === 'html' && (
+                <div>
+                  <div style={{ fontSize: 12, color: '#6b7a99', marginBottom: 12, lineHeight: 1.7 }}>
+                    Copy → save as <code style={{ background: '#141824', padding: '1px 5px', borderRadius: 3, color: '#a78bfa' }}>pitch.html</code> → open in browser → Ctrl/Cmd+P → Save as PDF
+                  </div>
+                  <pre className="tap-export-preview" style={{ maxHeight: 340 }}>{modal.content}</pre>
+                </div>
+              )}
+              {modal.type === 'pdf' && (
+                <iframe srcDoc={modal.content} style={{ width: '100%', height: '100%', minHeight: '65vh', border: 'none', background: '#fff', borderRadius: '0 0 12px 12px' }} title="PDF Preview" />
+              )}
+            </div>
+            <div className="tap-modal-footer">
+              {modal.type === 'pdf' && (
+                <>
+                  <div style={{ fontSize: 11, color: '#6b7a99', marginRight: 'auto' }}>
+                    Copy HTML → save as <code style={{ color: '#a78bfa' }}>pitch.html</code> → browser → Ctrl/Cmd+P → Save as PDF (A4)
+                  </div>
+                  <button className="tap-btn tap-btn-primary" onClick={() => copyToClipboard(modal.content, 'pdf')}>📋 Copy HTML to Clipboard</button>
+                  <button className="tap-btn tap-btn-secondary" onClick={() => setModal(null)}>Close</button>
+                </>
+              )}
+              {modal.type !== 'pdf' && (
+                <>
+                  <button className="tap-btn tap-btn-primary" onClick={() => copyToClipboard(modal.content, modal.type)}>📋 Copy to Clipboard</button>
+                  <button className="tap-btn tap-btn-secondary" onClick={() => setModal(null)}>Close</button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {toast && <Toast msg={toast} onClose={() => setToast(null)} />}
+    </div>
+  )
+}
