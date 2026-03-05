@@ -85,6 +85,20 @@ async function fetchMarketData(symbol) {
   return { price: 100 + Math.random() * 200, change: (Math.random() - 0.5) * 4, low52: 80 + Math.random() * 40, high52: 160 + Math.random() * 80, iv: 20 + Math.random() * 30 }
 }
 
+function downloadHTML(htmlContent, clientName) {
+  const date = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+  const filename = `Plurimi_TradeIdea_${clientName || 'Client'}_${date}.html`;
+  const blob = new Blob([htmlContent], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 function asciiTable(title, rowLabels, colLabels, grid) {
   const colW = 10, rowW = 16
   const sep = '+' + '-'.repeat(rowW) + colLabels.map(() => '+' + '-'.repeat(colW)).join('') + '+'
@@ -139,7 +153,7 @@ function buildHTMLExport(state) {
   return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
 <title>Trade Architect Pro — ${state.clientName || 'Client'}</title>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Cormorant+Garamond:wght@400;500;600;700&display=swap');
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'DM Sans',sans-serif;color:#1a1e2e;background:#fff;font-size:13px;line-height:1.6}
 .page{max-width:960px;margin:0 auto;padding:48px 40px}
@@ -759,10 +773,10 @@ export default function TradeArchitectPro() {
                 <div className="tap-export-card-title">Email Export</div>
                 <div className="tap-export-card-desc">Plain text with ASCII pricing tables. Copy and paste into any email client.</div>
               </div>
-              <div className="tap-export-card" onClick={() => setModal({ type: 'pdf', content: buildHTMLExport(state) })}>
+              <div className="tap-export-card" onClick={() => { downloadHTML(buildHTMLExport(state), state.clientName); showToast('HTML file downloaded — open in browser and print to PDF'); }}>
                 <div className="tap-export-card-icon">🖨️</div>
                 <div className="tap-export-card-title">Print to PDF</div>
-                <div className="tap-export-card-desc">Live preview of the white-paper. Copy HTML → save as .html → open in browser → Ctrl+P → Save as PDF.</div>
+                <div className="tap-export-card-desc">Download HTML file for PDF export. Open in browser → Ctrl/Cmd+P → Save as PDF.</div>
               </div>
               <div className="tap-export-card" onClick={() => setModal({ type: 'html', content: buildHTMLExport(state) })}>
                 <div className="tap-export-card-icon">📋</div>
@@ -812,14 +826,14 @@ export default function TradeArchitectPro() {
 
       {modal && (
         <div className="tap-modal-overlay" onClick={e => e.target === e.currentTarget && setModal(null)}>
-          <div className="tap-modal" style={modal.type === 'pdf' ? { maxWidth: '960px', maxHeight: '92vh' } : {}}>
+          <div className="tap-modal">
             <div className="tap-modal-header">
               <div className="tap-modal-title">
-                {modal.type === 'email' ? '✉️ Email Export' : modal.type === 'pdf' ? '📄 PDF Preview' : '📋 HTML Source'}
+                {modal.type === 'email' ? '✉️ Email Export' : '📋 HTML Source'}
               </div>
               <button className="tap-btn tap-btn-secondary tap-btn-sm" onClick={() => setModal(null)}>✕ Close</button>
             </div>
-            <div className="tap-modal-body" style={modal.type === 'pdf' ? { padding: 0, flex: 1, overflow: 'hidden' } : {}}>
+            <div className="tap-modal-body">
               {modal.type === 'email' && <pre className="tap-export-preview">{modal.content}</pre>}
               {modal.type === 'html' && (
                 <div>
@@ -829,26 +843,10 @@ export default function TradeArchitectPro() {
                   <pre className="tap-export-preview" style={{ maxHeight: 340 }}>{modal.content}</pre>
                 </div>
               )}
-              {modal.type === 'pdf' && (
-                <iframe srcDoc={modal.content} style={{ width: '100%', height: '100%', minHeight: '65vh', border: 'none', background: '#fff', borderRadius: '0 0 12px 12px' }} title="PDF Preview" />
-              )}
             </div>
             <div className="tap-modal-footer">
-              {modal.type === 'pdf' && (
-                <>
-                  <div style={{ fontSize: 11, color: '#6b7a99', marginRight: 'auto' }}>
-                    Copy HTML → save as <code style={{ color: '#a78bfa' }}>pitch.html</code> → browser → Ctrl/Cmd+P → Save as PDF (A4)
-                  </div>
-                  <button className="tap-btn tap-btn-primary" onClick={() => copyToClipboard(modal.content, 'pdf')}>📋 Copy HTML to Clipboard</button>
-                  <button className="tap-btn tap-btn-secondary" onClick={() => setModal(null)}>Close</button>
-                </>
-              )}
-              {modal.type !== 'pdf' && (
-                <>
-                  <button className="tap-btn tap-btn-primary" onClick={() => copyToClipboard(modal.content, modal.type)}>📋 Copy to Clipboard</button>
-                  <button className="tap-btn tap-btn-secondary" onClick={() => setModal(null)}>Close</button>
-                </>
-              )}
+              <button className="tap-btn tap-btn-primary" onClick={() => copyToClipboard(modal.content, modal.type)}>📋 Copy to Clipboard</button>
+              <button className="tap-btn tap-btn-secondary" onClick={() => setModal(null)}>Close</button>
             </div>
           </div>
         </div>
