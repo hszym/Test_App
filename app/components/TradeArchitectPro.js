@@ -215,122 +215,124 @@ h4{font-size:13px;font-weight:600;color:#334155;margin:0 0 10px}
 }
 
 // ─── STYLES ──────────────────────────────────────────────────────────────────
-const FONT = "'DM Sans', 'Helvetica Neue', sans-serif"
-const MONO = "'DM Mono', 'Courier New', monospace"
+const FONT = "'Montserrat', sans-serif"
+const MONO = "'Courier New', monospace"
 
 const css = `
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@300;400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Cormorant+Garamond:wght@400;500;600;700&display=swap');
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-body{background:#0a0c10;color:#e8eaf0;font-family:${FONT}}
-.tap-root{min-height:100vh;background:#0a0c10;color:#e8eaf0;font-family:${FONT}}
-.tap-topbar{display:flex;align-items:center;justify-content:space-between;padding:0 32px;height:58px;background:#0d1017;border-bottom:1px solid #1e2535;position:sticky;top:0;z-index:100}
+body{background:#f3f4f5;color:#202a3e;font-family:${FONT}}
+.tap-root{min-height:100vh;background:#f3f4f5;color:#202a3e;font-family:${FONT}}
+.tap-topbar{display:flex;align-items:center;justify-content:space-between;padding:0 32px;height:58px;background:#202a3e;border-bottom:1px solid #b38559;position:sticky;top:0;z-index:100}
 .tap-logo{display:flex;align-items:center;gap:10px}
-.tap-logo-icon{width:30px;height:30px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff}
-.tap-logo-text{font-size:14px;font-weight:600;letter-spacing:.03em;color:#f0f2f8}
-.tap-logo-sub{font-size:10px;color:#6b7a99;letter-spacing:.08em;text-transform:uppercase}
+.tap-logo-icon{width:30px;height:30px;background:#b38559;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff}
+.tap-logo-text{font-size:14px;font-weight:600;letter-spacing:.03em;color:#ffffff}
+.tap-logo-sub{font-size:10px;color:#b38559;letter-spacing:.08em;text-transform:uppercase}
 .tap-steps{display:flex;gap:4px}
-.tap-step{padding:6px 18px;border-radius:4px;font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;color:#6b7a99;border:1px solid transparent;letter-spacing:.03em}
-.tap-step.active{background:#1a2035;color:#3b82f6;border-color:#2a3555}
-.tap-step:hover:not(.active){color:#a0aec0;background:#141824}
+.tap-step{padding:6px 18px;border-radius:4px;font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;color:#b38559;border:1px solid transparent;letter-spacing:.03em}
+.tap-step.active{background:#ffffff;color:#202a3e;border-color:#b38559}
+.tap-step:hover:not(.active){color:#b38559;background:#f3f4f5}
 .tap-step-num{font-family:${MONO};font-size:10px;opacity:.7;margin-right:6px}
 .tap-main{max-width:1200px;margin:0 auto;padding:32px 24px}
-.tap-section-title{font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:#4a5578;margin-bottom:20px;display:flex;align-items:center;gap:8px}
-.tap-section-title::after{content:'';flex:1;height:1px;background:#1a2035}
-.tap-card{background:#0d1017;border:1px solid #1a2035;border-radius:10px;padding:24px}
+.tap-section-title{font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:#202a3e;margin-bottom:20px;display:flex;align-items:center;gap:8px}
+.tap-section-title::after{content:'';flex:1;height:1px;background:#e2e8f0}
+.tap-card{background:#ffffff;border:1px solid #e2e8f0;border-radius:10px;padding:24px}
 .tap-card+.tap-card{margin-top:16px}
 .tap-form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}
 .tap-field{display:flex;flex-direction:column;gap:6px}
-.tap-label{font-size:11px;font-weight:500;color:#4a5578;letter-spacing:.05em;text-transform:uppercase}
-.tap-input{background:#141824;border:1px solid #1e2535;border-radius:6px;color:#e8eaf0;font-family:${FONT};font-size:13px;padding:9px 12px;outline:none;transition:border-color .15s}
-.tap-input:focus{border-color:#3b82f6}
-.tap-input::placeholder{color:#3a4460}
-.tap-select{background:#141824;border:1px solid #1e2535;border-radius:6px;color:#e8eaf0;font-family:${FONT};font-size:13px;padding:9px 12px;outline:none;cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236b7a99'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:28px}
-.tap-textarea{background:#141824;border:1px solid #1e2535;border-radius:6px;color:#e8eaf0;font-family:${FONT};font-size:13px;padding:10px 12px;outline:none;resize:vertical;line-height:1.6;transition:border-color .15s;min-height:80px}
-.tap-textarea:focus{border-color:#3b82f6}
-.tap-textarea::placeholder{color:#3a4460}
+.tap-label{font-size:11px;font-weight:500;color:#202a3e;letter-spacing:.05em;text-transform:uppercase}
+.tap-input{background:#ffffff;border:1px solid #e2e8f0;border-radius:6px;color:#202a3e;font-family:${FONT};font-size:13px;padding:9px 12px;outline:none;transition:border-color .15s}
+.tap-input:focus{border-color:#b38559}
+.tap-input::placeholder{color:#6b7280}
+.tap-select{background:#ffffff;border:1px solid #e2e8f0;border-radius:6px;color:#202a3e;font-family:${FONT};font-size:13px;padding:9px 12px;outline:none;cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236b7280'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:28px}
+.tap-textarea{background:#ffffff;border:1px solid #e2e8f0;border-radius:6px;color:#202a3e;font-family:${FONT};font-size:13px;padding:10px 12px;outline:none;resize:vertical;line-height:1.6;transition:border-color .15s;min-height:80px}
+.tap-textarea:focus{border-color:#b38559}
+.tap-textarea::placeholder{color:#6b7280}
 .tap-ticker-row{display:flex;gap:10px;align-items:flex-end;margin-bottom:12px}
 .tap-ticker-sym{flex:2}
 .tap-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;border:none;font-family:${FONT};letter-spacing:.02em;white-space:nowrap}
-.tap-btn-primary{background:#3b82f6;color:#fff}
-.tap-btn-primary:hover{background:#2563eb}
-.tap-btn-secondary{background:#1a2035;color:#a0aec0;border:1px solid #1e2535}
-.tap-btn-secondary:hover{background:#1e2540;color:#e8eaf0}
-.tap-btn-ai{background:linear-gradient(135deg,#1a1040,#1a2035);color:#a78bfa;border:1px solid #2d2060;font-size:11px;padding:5px 12px}
-.tap-btn-ai:hover{background:linear-gradient(135deg,#221560,#1e2540)}
+.tap-btn-primary{background:#b38559;color:#fff}
+.tap-btn-primary:hover{background:#a0764a}
+.tap-btn-secondary{background:#ffffff;color:#202a3e;border:1px solid #e2e8f0}
+.tap-btn-secondary:hover{background:#f3f4f5;color:#202a3e}
+.tap-btn-ai{background:#b38559;color:#ffffff;border:1px solid #b38559;font-size:11px;padding:5px 12px}
+.tap-btn-ai:hover{background:#a0764a}
 .tap-btn-sm{padding:6px 12px;font-size:11px}
 .tap-btn:disabled{opacity:.5;cursor:not-allowed}
-.tap-fetch-btn{padding:9px 14px;background:#141824;border:1px solid #1e2535;border-radius:6px;color:#6b7a99;cursor:pointer;font-size:12px;font-family:${FONT};white-space:nowrap;transition:all .15s}
-.tap-fetch-btn:hover{color:#3b82f6;border-color:#3b82f6}
+.tap-fetch-btn{padding:9px 14px;background:#ffffff;border:1px solid #e2e8f0;border-radius:6px;color:#202a3e;cursor:pointer;font-size:12px;font-family:${FONT};white-space:nowrap;transition:all .15s}
+.tap-fetch-btn:hover{color:#b38559;border-color:#b38559}
 .tap-mdata{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px}
-.tap-mdata-chip{background:#141824;border:1px solid #1a2035;border-radius:4px;padding:4px 10px;font-size:11px;color:#6b7a99;font-family:${MONO}}
-.tap-mdata-chip span{color:#e8eaf0;font-weight:500}
+.tap-mdata-chip{background:#f3f4f5;border:1px solid #e2e8f0;border-radius:4px;padding:4px 10px;font-size:11px;color:#6b7280;font-family:${MONO}}
+.tap-mdata-chip span{color:#202a3e;font-weight:500}
 .tap-mdata-chip.pos{color:#34d399}
 .tap-mdata-chip.neg{color:#f87171}
-.chip-val{color:#e8eaf0!important}
+.chip-val{color:#202a3e!important}
 .tap-stock-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
-.tap-stock-card{background:#0d1017;border:1px solid #1a2035;border-radius:10px;padding:20px;display:flex;flex-direction:column;gap:14px}
-.tap-stock-symbol{font-size:16px;font-weight:700;color:#f0f2f8;font-family:${MONO}}
-.tap-stock-price{font-size:20px;font-weight:600;color:#e8eaf0;font-family:${MONO}}
+.tap-stock-card{background:#ffffff;border:1px solid #e2e8f0;border-radius:10px;padding:20px;display:flex;flex-direction:column;gap:14px}
+.tap-stock-symbol{font-size:16px;font-weight:700;color:#202a3e;font-family:${MONO}}
+.tap-stock-price{font-size:20px;font-weight:600;color:#202a3e;font-family:${MONO}}
 .tap-stock-change{font-size:12px;font-weight:500;font-family:${MONO}}
 .tap-stock-change.pos{color:#34d399}
 .tap-stock-change.neg{color:#f87171}
 .tap-52w{display:flex;flex-direction:column;gap:4px}
-.tap-52w-bar-wrap{position:relative;height:4px;background:#1a2035;border-radius:2px}
+.tap-52w-bar-wrap{position:relative;height:4px;background:#e2e8f0;border-radius:2px}
 .tap-52w-bar-fill{position:absolute;top:0;left:0;height:100%;background:linear-gradient(90deg,#f87171,#facc15,#34d399);border-radius:2px}
-.tap-52w-marker{position:absolute;top:-4px;width:12px;height:12px;background:#fff;border:2px solid #3b82f6;border-radius:50%;transform:translateX(-50%)}
-.tap-52w-labels{display:flex;justify-content:space-between;font-size:10px;color:#4a5578;font-family:${MONO};margin-top:2px}
-.tap-wb-block{background:#0d1017;border:1px solid #1a2035;border-radius:10px;overflow:hidden}
-.tap-wb-block-header{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;border-bottom:1px solid #141824;background:#0a0c10}
-.tap-wb-block-title{font-size:12px;font-weight:600;color:#a0aec0;letter-spacing:.05em;display:flex;align-items:center;gap:8px}
+.tap-52w-marker{position:absolute;top:-4px;width:12px;height:12px;background:#ffffff;border:2px solid #b38559;border-radius:50%;transform:translateX(-50%)}
+.tap-52w-labels{display:flex;justify-content:space-between;font-size:10px;color:#6b7280;font-family:${MONO};margin-top:2px}
+.tap-wb-block{background:#ffffff;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden}
+.tap-wb-block-header{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;border-bottom:1px solid #e2e8f0;background:#f3f4f5}
+.tap-wb-block-title{font-size:12px;font-weight:600;color:#202a3e;letter-spacing:.05em;display:flex;align-items:center;gap:8px}
 .tap-wb-block-body{padding:20px}
 .tap-prod-table{width:100%;border-collapse:collapse}
-.tap-prod-table td{padding:9px 14px;font-size:13px;border-bottom:1px solid #141824}
-.tap-prod-table td:first-child{color:#6b7a99;width:45%;font-weight:500}
-.tap-prod-table td:last-child{color:#e8eaf0;font-family:${MONO}}
+.tap-prod-table td{padding:9px 14px;font-size:13px;border-bottom:1px solid #e2e8f0}
+.tap-prod-table td:first-child{color:#6b7280;width:45%;font-weight:500}
+.tap-prod-table td:last-child{color:#202a3e;font-family:${MONO}}
 .tap-prod-table tr:last-child td{border-bottom:none}
 .tap-grid-wrap{overflow-x:auto}
 .tap-pg{width:100%;border-collapse:collapse;font-family:${MONO};font-size:12px}
-.tap-pg th{background:#0a0c10;color:#4a5578;font-weight:500;padding:8px 12px;text-align:center;border:1px solid #141824}
+.tap-pg th{background:#f3f4f5;color:#202a3e;font-weight:500;padding:8px 12px;text-align:center;border:1px solid #e2e8f0}
 .tap-pg th:first-child{text-align:left}
-.tap-pg td{border:1px solid #141824;padding:0}
-.tap-pg td input{width:100%;background:transparent;border:none;color:#e8eaf0;text-align:center;padding:7px 8px;font-family:${MONO};font-size:12px;outline:none;transition:background .1s}
-.tap-pg td input:focus{background:#1a2035}
-.tap-pg td:first-child input{text-align:left;padding-left:12px;color:#6b7a99}
-.tap-pg-label{background:#0a0c10;color:#6b7a99;padding:7px 12px;font-size:11px}
-.tap-dropzone{border:2px dashed #1e2535;border-radius:10px;padding:48px 24px;text-align:center;cursor:pointer;transition:all .2s;color:#4a5578}
-.tap-dropzone:hover,.tap-dropzone.drag{border-color:#3b82f6;color:#3b82f6;background:#0d1220}
+.tap-pg td{border:1px solid #e2e8f0;padding:0}
+.tap-pg td input{width:100%;background:transparent;border:none;color:#202a3e;text-align:center;padding:7px 8px;font-family:${MONO};font-size:12px;outline:none;transition:background .1s}
+.tap-pg td input:focus{background:#f3f4f5}
+.tap-pg td:first-child input{text-align:left;padding-left:12px;color:#6b7280}
+.tap-pg-label{background:#f3f4f5;color:#6b7280;padding:7px 12px;font-size:11px}
+.tap-dropzone{border:2px dashed #e2e8f0;border-radius:10px;padding:48px 24px;text-align:center;cursor:pointer;transition:all .2s;color:#202a3e}
+.tap-dropzone:hover,.tap-dropzone.drag{border-color:#b38559;color:#b38559;background:#f9f9f9}
 .tap-dropzone-icon{font-size:32px;margin-bottom:8px}
 .tap-dropzone-text{font-size:13px}
 .tap-dropzone-sub{font-size:11px;margin-top:4px;opacity:.7}
 .tap-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;display:flex;align-items:center;justify-content:center;padding:24px}
-.tap-modal{background:#0d1017;border:1px solid #1e2535;border-radius:12px;max-width:860px;width:100%;max-height:85vh;display:flex;flex-direction:column}
-.tap-modal-header{display:flex;align-items:center;justify-content:space-between;padding:16px 24px;border-bottom:1px solid #1a2035}
-.tap-modal-title{font-size:14px;font-weight:600;color:#f0f2f8}
+.tap-modal{background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;max-width:860px;width:100%;max-height:85vh;display:flex;flex-direction:column}
+.tap-modal-header{display:flex;align-items:center;justify-content:space-between;padding:16px 24px;border-bottom:1px solid #e2e8f0}
+.tap-modal-title{font-size:14px;font-weight:600;color:#202a3e}
 .tap-modal-body{padding:24px;overflow-y:auto;flex:1}
-.tap-modal-footer{padding:16px 24px;border-top:1px solid #1a2035;display:flex;gap:10px;justify-content:flex-end}
-.tap-export-preview{background:#080a0e;border:1px solid #141824;border-radius:6px;padding:20px;font-family:${MONO};font-size:12px;color:#a0aec0;white-space:pre-wrap;max-height:400px;overflow-y:auto;line-height:1.7}
-.tap-nav{display:flex;justify-content:space-between;align-items:center;margin-top:32px;padding-top:24px;border-top:1px solid #1a2035}
+.tap-modal-footer{padding:16px 24px;border-top:1px solid #e2e8f0;display:flex;gap:10px;justify-content:flex-end}
+.tap-export-preview{background:#f3f4f5;border:1px solid #e2e8f0;border-radius:6px;padding:20px;font-family:${MONO};font-size:12px;color:#202a3e;white-space:pre-wrap;max-height:400px;overflow-y:auto;line-height:1.7}
+.tap-nav{display:flex;justify-content:space-between;align-items:center;margin-top:32px;padding-top:24px;border-top:1px solid #e2e8f0}
 @keyframes spin{to{transform:rotate(360deg)}}
 .spin{animation:spin .8s linear infinite;display:inline-block}
-.tap-checkbox-row{display:flex;align-items:center;gap:8px;font-size:13px;color:#a0aec0;cursor:pointer}
-.tap-checkbox-row input{accent-color:#3b82f6;width:14px;height:14px;cursor:pointer}
+.tap-checkbox-row{display:flex;align-items:center;gap:8px;font-size:13px;color:#202a3e;cursor:pointer}
+.tap-checkbox-row input{accent-color:#b38559;width:14px;height:14px;cursor:pointer}
 .tap-tag{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:3px;font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase}
-.tap-tag-blue{background:#0d1d40;color:#60a5fa}
+.tap-tag-blue{background:#b38559;color:#ffffff}
 .tap-tag-green{background:#0a2010;color:#34d399}
-.tap-tag-purple{background:#1a0d40;color:#a78bfa}
-.tap-divider{height:1px;background:#1a2035;margin:20px 0}
+.tap-tag-purple{background:#b38559;color:#ffffff}
+.tap-divider{height:1px;background:#e2e8f0;margin:20px 0}
 .tap-grid-section{margin-bottom:28px}
 .tap-grid-section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
-.tap-grid-section-title{font-size:13px;font-weight:600;color:#a0aec0;display:flex;align-items:center;gap:8px}
+.tap-grid-section-title{font-size:13px;font-weight:600;color:#202a3e;display:flex;align-items:center;gap:8px}
 .tap-export-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:24px}
-.tap-export-card{flex:1;min-width:200px;background:#0d1017;border:1px solid #1a2035;border-radius:10px;padding:20px;cursor:pointer;transition:all .2s;text-align:center}
-.tap-export-card:hover{border-color:#3b82f6;background:#0d1220}
+.tap-export-card{flex:1;min-width:200px;background:#ffffff;border:1px solid #e2e8f0;border-radius:10px;padding:20px;cursor:pointer;transition:all .2s;text-align:center}
+.tap-export-card:hover{border-color:#b38559;background:#f9f9f9}
 .tap-export-card-icon{font-size:28px;margin-bottom:8px}
-.tap-export-card-title{font-size:13px;font-weight:600;color:#e8eaf0;margin-bottom:4px}
-.tap-export-card-desc{font-size:11px;color:#4a5578}
+.tap-export-card-title{font-size:13px;font-weight:600;color:#202a3e;margin-bottom:4px}
+.tap-export-card-desc{font-size:11px;color:#6b7280}
 .tap-dot{width:6px;height:6px;border-radius:50%;display:inline-block}
 .tap-dot-green{background:#34d399;box-shadow:0 0 6px #34d399}
-.tap-dot-gray{background:#4a5578}
+.tap-dot-gray{background:#6b7280}
+.tap-toast{position:fixed;bottom:24px;right:24px;z-index:300;background:#ffffff;border:1px solid #b38559;border-radius:8px;padding:12px 20px;font-size:13px;color:#b38559;display:flex;align-items:center;gap:8px;animation:slideUp .3s ease}
+@keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
 `
 
 function Spinner() { return <span className="spin">⟳</span> }
@@ -343,7 +345,7 @@ function Toast({ msg, onClose }) {
 function PricingGrid({ label, rowLabels, colLabels, grid, onChange, note }) {
   return (
     <div className="tap-grid-wrap">
-      {note && <div style={{ fontSize: 11, color: '#4a5578', marginBottom: 8 }}>{note}</div>}
+      {note && <div style={{ fontSize: 11, color: '#202a3e', marginBottom: 8 }}>{note}</div>}
       <table className="tap-pg">
         <thead><tr><th>{label}</th>{colLabels.map(c => <th key={c}>{c}</th>)}</tr></thead>
         <tbody>
