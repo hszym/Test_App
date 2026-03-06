@@ -1,8 +1,6 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { jsPDF } from 'jspdf'
-import html2canvas from 'html2canvas'
 
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'CHF']
 const TENORS = ['12M', '18M', '24M', '36M']
@@ -101,51 +99,16 @@ function downloadHTML(htmlContent, clientName) {
   URL.revokeObjectURL(url);
 }
 
-async function generatePDF(state, showToast) {
-  // build HTML and render off-screen
+function exportPDF(state) {
+  // open a new window containing the HTML and auto-print
   const html = buildHTMLExport(state);
-  let container = document.getElementById('pdf-export-container');
-  if (!container) {
-    container = document.createElement('div');
-    container.id = 'pdf-export-container';
-    container.style.position = 'absolute';
-    container.style.left = '-9999px';
-    container.style.top = '0';
-    container.style.width = '210mm';
-    container.style.minHeight = '297mm';
-    container.style.background = '#fff';
-    document.body.appendChild(container);
+  const printWindow = window.open('', '_blank');
+  if (!printWindow) {
+    alert('Popup blocked. Please allow popups for this site.');
+    return;
   }
-  container.innerHTML = html;
-  // wait for fonts/images to render
-  await new Promise(r => setTimeout(r, 500));
-
-  const canvas = await html2canvas(container, { scale: 2 });
-  const imgData = canvas.toDataURL('image/png');
-  const pdf = new jsPDF('p', 'mm', 'a4');
-  const pdfWidth = pdf.internal.pageSize.getWidth();
-  const pdfHeight = pdf.internal.pageSize.getHeight();
-
-  const imgProps = pdf.getImageProperties(imgData);
-  const imgWidthMm = pdfWidth;
-  const imgHeightMm = (imgProps.height * pdfWidth) / imgProps.width;
-
-  let position = 0;
-  pdf.addImage(imgData, 'PNG', 0, position, imgWidthMm, imgHeightMm);
-
-  while (imgHeightMm - position > pdfHeight) {
-    position -= pdfHeight;
-    pdf.addPage();
-    pdf.addImage(imgData, 'PNG', 0, position, imgWidthMm, imgHeightMm);
-  }
-
-  const date = new Date().toISOString().split('T')[0];
-  const filename = `Plurimi_Pitch_${state.clientName || 'Client'}_${date}.pdf`;
-  pdf.save(filename);
-
-  // clean up
-  container.innerHTML = '';
-  showToast('PDF downloaded');
+  printWindow.document.write(html + "<script>window.onload = function(){window.print();};<\/script>");
+  printWindow.document.close();
 }
 
 function asciiTable(title, rowLabels, colLabels, grid) {
@@ -822,10 +785,10 @@ export default function TradeArchitectPro() {
                 <div className="tap-export-card-title">Email Export</div>
                 <div className="tap-export-card-desc">Plain text with ASCII pricing tables. Copy and paste into any email client.</div>
               </div>
-              <div className="tap-export-card" onClick={() => generatePDF(state, showToast)}>
+              <div className="tap-export-card" onClick={() => { exportPDF(state); showToast('Print window opened'); }}>
                 <div className="tap-export-card-icon">🖨️</div>
                 <div className="tap-export-card-title">Export PDF</div>
-                <div className="tap-export-card-desc">Generate a real A4 PDF and download directly (portrait, multipage supported).</div>
+                <div className="tap-export-card-desc">Opens print preview in new tab; save as PDF using browser dialog.</div>
               </div>
               <div className="tap-export-card" onClick={() => setModal({ type: 'html', content: buildHTMLExport(state) })}>
                 <div className="tap-export-card-icon">📋</div>
