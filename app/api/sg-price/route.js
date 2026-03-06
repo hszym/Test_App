@@ -11,23 +11,26 @@ const PRODUCT_CONFIG = {
 }
 
 async function getSGToken() {
+  // Try without scope first; if rejected, caller can retry with scope: 'openid'
   const params = new URLSearchParams({
     grant_type:    'client_credentials',
     client_id:     process.env.SG_CLIENT_ID,
     client_secret: process.env.SG_CLIENT_SECRET,
-    scope:         'api.sgmarkets-execution-structured-products.v1',
   })
   const res = await fetch(SG_TOKEN_URL, {
     method:  'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body:    params.toString(),
   })
+  const rawText = await res.text()
+  console.log('SG token response status:', res.status)
+  console.log('SG token response body:', rawText)
   if (!res.ok) {
-    const body = await res.text()
-    throw new Error(`SG auth failed (${res.status}): ${body}`)
+    throw new Error(`SG auth failed (${res.status}): ${rawText}`)
   }
-  const data = await res.json()
-  if (!data.access_token) throw new Error('SG auth response missing access_token')
+  let data
+  try { data = JSON.parse(rawText) } catch { throw new Error(`SG auth: non-JSON response: ${rawText}`) }
+  if (!data.access_token) throw new Error(`SG auth response missing access_token. Full response: ${rawText}`)
   return data.access_token
 }
 
