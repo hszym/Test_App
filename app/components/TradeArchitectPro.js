@@ -54,6 +54,7 @@ const DEFAULT_STATE = {
   showGrids: { rc: true, snowball: true, bonus: true, cpn: true },
   pricingCurrency: 'USD',
   aiLoading: {},
+  aiMode: {},
 }
 
 // ─── AI CALL — hits our own secure Next.js API route, not Anthropic directly ─
@@ -124,14 +125,19 @@ function asciiTable(title, rowLabels, colLabels, grid) {
 
 function buildHTMLExport(state) {
   const activeTickers = state.tickers.filter(t => t.symbol && t.data)
+  const dateStr = new Date().toLocaleDateString('en-GB', { year: 'numeric', month: 'long', day: 'numeric' })
 
   const gridHTML = (label, rowLabels, colLabels, grid, caps) => {
+    const headerCells = colLabels.map(c => `<th>${c}</th>`).join('')
     const rows = rowLabels.map((r, ri) =>
-      `<tr><td class="row-label">${r}</td>${colLabels.map((c, ci) =>
-        `<td>${grid?.[ri]?.[ci] || '—'}${caps ? `<br/><span class="cap-note">Cap ${caps[c]}</span>` : ''}</td>`
-      ).join('')}</tr>`
+      `<tr class="${ri % 2 === 0 ? 'row-even' : 'row-odd'}">
+        <td class="row-label">${r}</td>
+        ${colLabels.map((c, ci) =>
+          `<td>${grid?.[ri]?.[ci] || '\u2014'}${caps ? `<br/><span class="cap-note">Cap ${caps[c]}</span>` : ''}</td>`
+        ).join('')}
+      </tr>`
     ).join('')
-    return `<table class="pg-table"><thead><tr><th>${label}</th>${colLabels.map(c => `<th>${c}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table>`
+    return `<table class="pg-table"><thead><tr><th class="row-label-head">${label}</th>${headerCells}</tr></thead><tbody>${rows}</tbody></table>`
   }
 
   const stockCards = activeTickers.map(t => {
@@ -142,76 +148,187 @@ function buildHTMLExport(state) {
         <span class="sc-sym">${t.symbol}</span>
         <span class="sc-cur">${t.currency}</span>
         <span class="sc-price">${fmt(p?.price)}</span>
-        <span class="sc-chg ${p?.change >= 0 ? 'pos' : 'neg'}">${p?.change >= 0 ? '▲' : '▼'} ${fmt(Math.abs(p?.change))}%</span>
+        <span class="sc-chg ${p?.change >= 0 ? 'pos' : 'neg'}">${p?.change >= 0 ? '\u25b2' : '\u25bc'} ${fmt(Math.abs(p?.change))}%</span>
       </div>
       <div class="sc-bar-wrap"><div class="sc-bar-fill" style="width:${pct}%"></div><div class="sc-bar-dot" style="left:${pct}%"></div></div>
-      <div class="sc-range">${fmt(p?.low52)} <span>52W Range</span> ${fmt(p?.high52)}</div>
-      <div class="sc-iv">Implied Vol: <strong>${fmt(p?.iv)}%</strong></div>
+      <div class="sc-range">${fmt(p?.low52)} <span class="sc-range-label">52W Range</span> ${fmt(p?.high52)}</div>
+      <div class="sc-iv">Implied Volatility: <strong>${fmt(p?.iv)}%</strong></div>
       ${t.bullCase ? `<div class="sc-section sc-bull"><strong>Bull Case</strong><p>${t.bullCase}</p></div>` : ''}
       ${t.bearCase ? `<div class="sc-section sc-bear"><strong>Bear Case</strong><p>${t.bearCase}</p></div>` : ''}
       ${t.entryNote ? `<div class="sc-section sc-entry"><strong>Entry Note</strong><p>${t.entryNote}</p></div>` : ''}
     </div>`
   }).join('')
 
-  const prodRows = (state.productRows || []).map(r => `<tr><td>${r.key}</td><td>${r.val}</td></tr>`).join('')
+  const prodRows = (state.productRows || []).map((r, i) =>
+    `<tr class="${i % 2 === 0 ? 'row-even' : 'row-odd'}"><td class="param-key">${r.key}</td><td class="param-val">${r.val}</td></tr>`
+  ).join('')
 
   const gridsHTML = [
-    state.showGrids.rc ? `<div class="grid-section"><h4>Autocall RC — Strike vs Tenor (${state.pricingCurrency})</h4>${gridHTML('Strike', RC_STRIKES, TENORS, state.pricingGrids.rc)}</div>` : '',
-    state.showGrids.snowball ? `<div class="grid-section"><h4>Snowball (${state.pricingCurrency})</h4>${gridHTML('Barrier/Coupon', SNOWBALL_BARRIERS, state.pricingGrids.snowball)}</div>` : '',
-    state.showGrids.bonus ? `<div class="grid-section"><h4>Bonus Note (${state.pricingCurrency})</h4>${gridHTML('Barrier', BONUS_BARRIERS, TENORS, state.pricingGrids.bonus, BONUS_CAPS)}</div>` : '',
-    state.showGrids.cpn ? `<div class="grid-section"><h4>CPN (${state.pricingCurrency})</h4>${gridHTML('Protection', CPN_PROTECTIONS, TENORS, state.pricingGrids.cpn)}</div>` : '',
+    state.showGrids.rc ? `<div class="grid-block">${gridHTML('Strike', RC_STRIKES, TENORS, state.pricingGrids.rc)}</div>` : '',
+    state.showGrids.snowball ? `<div class="grid-block">${gridHTML('Barrier/Coupon', SNOWBALL_BARRIERS, TENORS, state.pricingGrids.snowball)}</div>` : '',
+    state.showGrids.bonus ? `<div class="grid-block">${gridHTML('Barrier', BONUS_BARRIERS, TENORS, state.pricingGrids.bonus, BONUS_CAPS)}</div>` : '',
+    state.showGrids.cpn ? `<div class="grid-block">${gridHTML('Protection', CPN_PROTECTIONS, TENORS, state.pricingGrids.cpn)}</div>` : '',
   ].filter(Boolean).join('')
 
-  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
-<title>Trade Architect Pro — ${state.clientName || 'Client'}</title>
+  const gridTitles = { rc: 'Autocall Reverse Convertible', snowball: 'Snowball', bonus: 'Bonus Note', cpn: 'Capital Protected Note' }
+  const pricingSections = [
+    state.showGrids.rc ? { key: 'rc', title: gridTitles.rc } : null,
+    state.showGrids.snowball ? { key: 'snowball', title: gridTitles.snowball } : null,
+    state.showGrids.bonus ? { key: 'bonus', title: gridTitles.bonus } : null,
+    state.showGrids.cpn ? { key: 'cpn', title: gridTitles.cpn } : null,
+  ].filter(Boolean)
+
+  const pricingHTML = pricingSections.map(({ key, title }) => {
+    const grids = { rc: gridHTML('Strike', RC_STRIKES, TENORS, state.pricingGrids.rc), snowball: gridHTML('Barrier/Coupon', SNOWBALL_BARRIERS, TENORS, state.pricingGrids.snowball), bonus: gridHTML('Barrier', BONUS_BARRIERS, TENORS, state.pricingGrids.bonus, BONUS_CAPS), cpn: gridHTML('Protection', CPN_PROTECTIONS, TENORS, state.pricingGrids.cpn) }
+    return `<div class="section pricing-section">
+      <h3>${title} <span class="currency-tag">${state.pricingCurrency}</span></h3>
+      ${grids[key]}
+    </div>`
+  }).join('')
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>${state.bankName || 'Plurimi Wealth'} \u2014 Structured Product Pitch</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,600&family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Cormorant+Garamond:wght@400;500;600;700&display=swap');
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'DM Sans',sans-serif;color:#1a1e2e;background:#fff;font-size:13px;line-height:1.6}
-.page{max-width:960px;margin:0 auto;padding:48px 40px}
-.cover-header{border-bottom:2px solid #0f172a;padding-bottom:24px;margin-bottom:32px;display:flex;justify-content:space-between;align-items:flex-end}
-.bank-name{font-size:22px;font-weight:700;color:#0f172a}
-.client-info{text-align:right;font-size:12px;color:#64748b}
-.client-name{font-size:15px;font-weight:600;color:#1a1e2e}
-h2{font-size:16px;font-weight:700;color:#0f172a;margin:28px 0 12px;padding-bottom:6px;border-bottom:1px solid #e2e8f0}
-h4{font-size:13px;font-weight:600;color:#334155;margin:0 0 10px}
-.thesis{color:#334155;font-size:13px;line-height:1.8;background:#f8fafc;padding:18px 20px;border-left:3px solid #0f172a;border-radius:0 6px 6px 0}
-.stock-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin:16px 0}
-.stock-card{border:1px solid #e2e8f0;border-radius:8px;padding:16px}
-.sc-header{display:flex;align-items:baseline;gap:8px;margin-bottom:10px}
-.sc-sym{font-size:16px;font-weight:700;color:#0f172a;font-family:'DM Mono',monospace}
-.sc-cur{font-size:10px;color:#94a3b8;background:#f1f5f9;padding:2px 6px;border-radius:3px}
-.sc-price{font-size:15px;font-weight:600;font-family:'DM Mono',monospace;margin-left:auto}
-.sc-chg{font-size:11px;font-family:'DM Mono',monospace;font-weight:600}
-.sc-chg.pos{color:#059669}.sc-chg.neg{color:#dc2626}
-.sc-bar-wrap{position:relative;height:4px;background:#e2e8f0;border-radius:2px;margin:8px 0}
-.sc-bar-fill{position:absolute;top:0;left:0;height:100%;background:linear-gradient(90deg,#dc2626,#f59e0b,#059669);border-radius:2px}
-.sc-bar-dot{position:absolute;top:-4px;width:12px;height:12px;background:#0f172a;border:2px solid #fff;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,.2);transform:translateX(-50%)}
-.sc-range{font-size:10px;color:#94a3b8;font-family:'DM Mono',monospace;display:flex;justify-content:space-between}
-.sc-iv{font-size:11px;color:#64748b;margin-top:6px}
-.sc-section{margin-top:10px;padding:8px 10px;border-radius:4px;font-size:12px}
-.sc-section strong{display:block;font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;margin-bottom:3px}
-.sc-bull{background:#f0fdf4;border-left:2px solid #059669}.sc-bull strong{color:#059669}
-.sc-bear{background:#fef2f2;border-left:2px solid #dc2626}.sc-bear strong{color:#dc2626}
-.sc-entry{background:#f0f9ff;border-left:2px solid #0284c7}.sc-entry strong{color:#0284c7}
-.prod-table{width:100%;border-collapse:collapse}
-.prod-table td{padding:9px 14px;font-size:13px;border-bottom:1px solid #f1f5f9}
-.prod-table td:first-child{color:#64748b;font-weight:500;width:45%}
-.prod-table td:last-child{font-family:'DM Mono',monospace;font-weight:600;color:#0f172a}
-.grid-section{margin-bottom:20px}
-.pg-table{width:100%;border-collapse:collapse;font-family:'DM Mono',monospace;font-size:11px}
-.pg-table th{background:#f8fafc;color:#64748b;padding:7px 10px;text-align:center;border:1px solid #e2e8f0;font-weight:600}
-.pg-table th:first-child{text-align:left}
-.pg-table td{border:1px solid #e2e8f0;padding:7px 10px;text-align:center;color:#1a1e2e}
-.row-label{text-align:left!important;color:#64748b;font-weight:500}
-.cap-note{font-size:9px;color:#94a3b8}
-.disclaimer{margin-top:40px;padding-top:16px;border-top:1px solid #e2e8f0;font-size:10px;color:#94a3b8;line-height:1.6}
-@media print{
-  body{font-size:11px}
-  .page{padding:20px;max-width:100%}
-  .stock-cards{grid-template-columns:repeat(3,1fr)}
-  .grid-section{page-break-inside:avoid}
-  .stock-card{page-break-inside:avoid}
+@page { size: A4; margin: 20mm }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0 }
+body { font-family: 'Montserrat', sans-serif; color: #333; background: #fff; font-size: 11px; line-height: 1.8; -webkit-print-color-adjust: exact; print-color-adjust: exact }
+
+/* ── Cover page ── */
+.cover { width: 100%; min-height: 100vh; display: flex; flex-direction: column; background: #fff; page-break-after: always }
+.cover-top { background: #202a3e; padding: 64px 72px 56px; color: #fff; position: relative }
+.cover-top::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 4px; background: #b38559 }
+.cover-bank-name { font-family: 'Cormorant Garamond', serif; font-size: 56px; font-weight: 600; color: #fff; letter-spacing: .02em; line-height: 1.1; margin-bottom: 24px }
+.cover-gold-line { width: 72px; height: 2px; background: #b38559; margin-bottom: 20px }
+.cover-subtitle { font-family: 'Montserrat', sans-serif; font-size: 11px; font-weight: 600; color: #b38559; letter-spacing: .2em; text-transform: uppercase }
+.cover-body { flex: 1; padding: 56px 72px; display: flex; flex-direction: column; justify-content: flex-end }
+.cover-meta { border-top: 1px solid #e2e8f0; padding-top: 28px; display: flex; justify-content: space-between; align-items: flex-end }
+.cover-meta-label { font-size: 9px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: #999; margin-bottom: 6px }
+.cover-client-name { font-family: 'Cormorant Garamond', serif; font-size: 24px; font-weight: 600; color: #202a3e }
+.cover-client-email { font-size: 11px; color: #777; margin-top: 4px }
+.cover-date-block { text-align: right }
+.cover-date { font-size: 12px; color: #555 }
+.cover-prepared-by { font-size: 10px; color: #aaa; margin-top: 4px; font-style: italic }
+
+/* ── Main content ── */
+.page { max-width: 794px; margin: 0 auto; padding: 60px 72px }
+h2 { font-family: 'Cormorant Garamond', serif; font-size: 20px; font-weight: 600; color: #202a3e; margin: 40px 0 14px; padding-bottom: 8px; border-bottom: 1px solid #e2e8f0 }
+h3 { font-family: 'Cormorant Garamond', serif; font-size: 16px; font-weight: 600; color: #202a3e; margin: 28px 0 10px }
+.section { page-break-inside: avoid; margin-bottom: 12px }
+
+/* ── Thesis ── */
+.thesis { font-size: 11px; color: #333; line-height: 1.8; padding: 20px 24px; border-left: 3px solid #202a3e; background: #f9f9f9 }
+
+/* ── Basket dynamics ── */
+.basket-text { font-size: 11px; color: #444; line-height: 1.8 }
+
+/* ── Stock cards ── */
+.stock-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 16px; margin: 12px 0 }
+.stock-card { border: 1px solid #e2e8f0; border-top: 3px solid #202a3e; padding: 14px; page-break-inside: avoid }
+.sc-header { display: flex; align-items: baseline; gap: 8px; margin-bottom: 10px; flex-wrap: wrap }
+.sc-sym { font-family: 'Cormorant Garamond', serif; font-size: 20px; font-weight: 700; color: #202a3e }
+.sc-cur { font-size: 9px; color: #999; background: #f3f4f5; padding: 2px 6px; border-radius: 2px }
+.sc-price { font-size: 13px; font-weight: 600; font-family: 'Courier New', monospace; margin-left: auto; color: #202a3e }
+.sc-chg { font-size: 10px; font-family: 'Courier New', monospace; font-weight: 600 }
+.sc-chg.pos { color: #059669 } .sc-chg.neg { color: #dc2626 }
+.sc-bar-wrap { position: relative; height: 3px; background: #e2e8f0; border-radius: 2px; margin: 8px 0 }
+.sc-bar-fill { position: absolute; top: 0; left: 0; height: 100%; background: linear-gradient(90deg, #dc2626, #f59e0b, #059669); border-radius: 2px }
+.sc-bar-dot { position: absolute; top: -4px; width: 10px; height: 10px; background: #202a3e; border: 2px solid #fff; border-radius: 50%; transform: translateX(-50%); box-shadow: 0 1px 3px rgba(0,0,0,.2) }
+.sc-range { font-size: 9px; color: #aaa; font-family: 'Courier New', monospace; display: flex; justify-content: space-between; margin-top: 2px }
+.sc-range-label { color: #ccc }
+.sc-iv { font-size: 10px; color: #666; margin-top: 6px }
+.sc-section { margin-top: 10px; padding: 8px 10px; font-size: 10px; line-height: 1.7 }
+.sc-section strong { display: block; font-size: 9px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 3px }
+.sc-section p { margin: 0; color: #444 }
+.sc-bull { background: #f0fdf4; border-left: 2px solid #059669 } .sc-bull strong { color: #059669 }
+.sc-bear { background: #fef2f2; border-left: 2px solid #dc2626 } .sc-bear strong { color: #dc2626 }
+.sc-entry { background: #f5f7ff; border-left: 2px solid #202a3e } .sc-entry strong { color: #202a3e }
+
+/* ── Product parameters ── */
+.prod-table { width: 100%; border-collapse: collapse; margin: 8px 0 }
+.prod-table tr.row-even { background: #f9f9f9 } .prod-table tr.row-odd { background: #fff }
+.param-key { padding: 10px 16px; font-size: 11px; color: #666; font-weight: 500; width: 45%; border-bottom: 1px solid #f0f0f0 }
+.param-val { padding: 10px 16px; font-size: 11px; color: #202a3e; font-family: 'Courier New', monospace; font-weight: 600; border-bottom: 1px solid #f0f0f0 }
+
+/* ── Pricing tables ── */
+.pricing-section { page-break-inside: avoid }
+.currency-tag { font-family: 'Montserrat', sans-serif; font-size: 10px; font-weight: 600; color: #b38559; letter-spacing: .06em }
+.pg-table { width: 100%; border-collapse: collapse; margin: 8px 0 }
+.pg-table thead tr { background: #202a3e; border-bottom: 3px solid #b38559 }
+.pg-table th { color: #fff; padding: 10px 16px; text-align: center; font-size: 10px; font-weight: 600; letter-spacing: .06em; font-family: 'Montserrat', sans-serif; border: 1px solid #2e3c56 }
+.pg-table th.row-label-head { text-align: left }
+.pg-table tr.row-even { background: #f9f9f9 } .pg-table tr.row-odd { background: #fff }
+.pg-table td { padding: 10px 16px; text-align: center; font-family: 'Courier New', monospace; font-size: 11px; color: #202a3e; border: 1px solid #e8e8e8 }
+.row-label { text-align: left !important; color: #666; font-weight: 500; font-family: 'Montserrat', sans-serif; font-size: 10px }
+.cap-note { font-size: 8px; color: #aaa; display: block; margin-top: 1px }
+
+/* ── Disclaimer ── */
+.disclaimer { margin-top: 48px; padding-top: 16px; border-top: 1px solid #e2e8f0; font-size: 9px; color: #aaa; line-height: 1.7; font-style: italic }
+
+@media print {
+  body { font-size: 10px }
+  .cover { min-height: 297mm; page-break-after: always }
+  .page { padding: 0; max-width: 100% }
+  .stock-cards { grid-template-columns: repeat(3, 1fr) }
+  .section { page-break-inside: avoid }
+}
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <div class="cover-top">
+    <div class="cover-bank-name">${state.bankName || 'Plurimi Wealth'}</div>
+    <div class="cover-gold-line"></div>
+    <div class="cover-subtitle">Structured Product Pitch</div>
+  </div>
+  <div class="cover-body">
+    <div class="cover-meta">
+      <div>
+        <div class="cover-meta-label">Prepared for</div>
+        <div class="cover-client-name">${state.clientName || 'Institutional Client'}</div>
+        ${state.clientEmail ? `<div class="cover-client-email">${state.clientEmail}</div>` : ''}
+      </div>
+      <div class="cover-date-block">
+        <div class="cover-date">${dateStr}</div>
+        <div class="cover-prepared-by">Trade Architect Pro</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="page">
+  <div class="section">
+    <h2>Investment Thesis</h2>
+    <div class="thesis">${(state.thesis || '').replace(/\n/g, '<br/>')}</div>
+  </div>
+
+  <div class="section">
+    <h2>Underlying Assets</h2>
+    <div class="stock-cards">${stockCards}</div>
+  </div>
+
+  <div class="section">
+    <h2>Basket Dynamics</h2>
+    <div class="basket-text">${(state.basketDynamics || '').replace(/\n/g, '<br/>')}</div>
+  </div>
+
+  <div class="section">
+    <h2>Product Parameters</h2>
+    <table class="prod-table"><tbody>${prodRows}</tbody></table>
+  </div>
+
+  ${pricingHTML ? `<div class="section"><h2>Indicative Pricing</h2></div>${pricingHTML}` : ''}
+
+  <div class="disclaimer">${state.disclaimer}</div>
+</div>
+
+</body>
+</html>`
 }
 </style></head><body>
 <div class="page">
@@ -338,6 +455,10 @@ body{background:#f3f4f5;color:#202a3e;font-family:${FONT}}
 .tap-nav{display:flex;justify-content:space-between;align-items:center;margin-top:32px;padding-top:24px;border-top:1px solid #e2e8f0}
 @keyframes spin{to{transform:rotate(360deg)}}
 .spin{animation:spin .8s linear infinite;display:inline-block}
+.tap-toggle{display:inline-flex;border-radius:3px;overflow:hidden;border:1px solid #b38559;font-size:10px;font-weight:600;letter-spacing:.04em}
+.tap-toggle-opt{padding:3px 8px;border:none;cursor:pointer;font-family:inherit;transition:background .1s;line-height:1.4}
+.tap-toggle-opt.active{background:#b38559;color:#fff}
+.tap-toggle-opt:not(.active){background:#ffffff;color:#b38559}
 .tap-checkbox-row{display:flex;align-items:center;gap:8px;font-size:13px;color:#202a3e;cursor:pointer}
 .tap-checkbox-row input{accent-color:#b38559;width:14px;height:14px;cursor:pointer}
 .tap-tag{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:3px;font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase}
@@ -362,6 +483,19 @@ body{background:#f3f4f5;color:#202a3e;font-family:${FONT}}
 `
 
 function Spinner() { return <span className="spin">⟳</span> }
+
+function ShortLongToggle({ value, onChange }) {
+  return (
+    <div className="tap-toggle">
+      {['Short', 'Long'].map(opt => (
+        <button key={opt} className={`tap-toggle-opt ${value === opt.toLowerCase() ? 'active' : ''}`}
+          onClick={() => onChange(opt.toLowerCase())}>
+          {opt}
+        </button>
+      ))}
+    </div>
+  )
+}
 
 function Toast({ msg, onClose }) {
   useEffect(() => { const t = setTimeout(onClose, 2500); return () => clearTimeout(t) }, [onClose])
@@ -456,16 +590,26 @@ export default function TradeArchitectPro() {
     const syms = state.tickers.filter(t => t.symbol).map(t => t.symbol).join(', ')
     const tickerField = field.match(/^(bull|bear|entry)_(\d)$/)
     try {
+      const short = state.aiMode?.[field] === 'short'
       let prompt
       if (tickerField) {
         const [, type, idx] = tickerField
         const sym = state.tickers[parseInt(idx)]?.symbol
-        const typeMap = { bull: 'bull case (3–4 sentences, positive scenario)', bear: 'bear case (3–4 sentences, downside risks)', entry: 'entry note (2–3 sentences, technical entry rationale)' }
-        prompt = `Write a professional ${typeMap[type]} for ${sym} for an institutional pitch deck. Be specific and use financial terminology. No disclaimers.`
+        if (short) {
+          const shortMap = { bull: 'bull case in 1–2 punchy sentences', bear: 'bear case in 1–2 punchy sentences', entry: 'entry rationale in 1–2 direct sentences' }
+          prompt = `Write a ${shortMap[type]} for ${sym} for an institutional pitch. No disclaimers.`
+        } else {
+          const typeMap = { bull: 'bull case (3–4 sentences, positive scenario)', bear: 'bear case (3–4 sentences, downside risks)', entry: 'entry note (2–3 sentences, technical entry rationale)' }
+          prompt = `Write a professional ${typeMap[type]} for ${sym} for an institutional pitch deck. Be specific and use financial terminology. No disclaimers.`
+        }
       } else if (field === 'thesis') {
-        prompt = `You are a senior structured products analyst at ${state.bankName || 'a private bank'}. Write a professional, institutional-grade investment thesis (4–6 sentences) for a basket of stocks: ${syms}. Focus on macro drivers, sector positioning, and rationale for a structured product overlay. No disclaimers. Pure thesis prose.`
+        prompt = short
+          ? `Write a 1–2 sentence investment thesis for a basket of ${syms}. Punchy, institutional tone. No disclaimers.`
+          : `You are a senior structured products analyst at ${state.bankName || 'a private bank'}. Write a professional, institutional-grade investment thesis (4–6 sentences) for a basket of stocks: ${syms}. Focus on macro drivers, sector positioning, and rationale for a structured product overlay. No disclaimers. Pure thesis prose.`
       } else {
-        prompt = `Analyse the basket dynamics for: ${syms}. In 3–5 professional sentences explain: correlation characteristics, macro drivers, diversification merits, and why these stocks work well together in a worst-of structured product. Institutional tone.`
+        prompt = short
+          ? `In 1–2 sentences, summarise the basket dynamics for: ${syms}. Direct, institutional tone.`
+          : `Analyse the basket dynamics for: ${syms}. In 3–5 professional sentences explain: correlation characteristics, macro drivers, diversification merits, and why these stocks work well together in a worst-of structured product. Institutional tone.`
       }
       const result = await callClaude(prompt)
       if (tickerField) {
@@ -614,9 +758,12 @@ export default function TradeArchitectPro() {
             <div className="tap-wb-block" style={{ marginBottom: 16 }}>
               <div className="tap-wb-block-header">
                 <div className="tap-wb-block-title">📄 Investment Thesis</div>
-                <button className="tap-btn tap-btn-ai" onClick={() => aiRefresh('thesis')} disabled={state.aiLoading?.thesis}>
-                  {state.aiLoading?.thesis ? <><Spinner /> Generating…</> : '✨ AI Refresh'}
-                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <ShortLongToggle value={state.aiMode?.thesis || 'long'} onChange={v => set({ aiMode: { ...state.aiMode, thesis: v } })} />
+                  <button className="tap-btn tap-btn-ai" onClick={() => aiRefresh('thesis')} disabled={state.aiLoading?.thesis}>
+                    {state.aiLoading?.thesis ? <><Spinner /> Generating…</> : '✨ AI Refresh'}
+                  </button>
+                </div>
               </div>
               <div className="tap-wb-block-body">
                 <textarea className="tap-textarea" style={{ minHeight: 120, width: '100%' }} value={state.thesis} onChange={e => set({ thesis: e.target.value })} placeholder="Enter or generate an investment thesis for this basket…" />
@@ -657,9 +804,12 @@ export default function TradeArchitectPro() {
                           <div key={key} style={{ marginBottom: 10 }}>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
                               <label className="tap-label">{label}</label>
-                              <button className="tap-btn tap-btn-ai" style={{ fontSize: 10 }} onClick={() => aiRefresh(field)} disabled={state.aiLoading?.[field]}>
-                                {state.aiLoading?.[field] ? <Spinner /> : '✨'}
-                              </button>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <ShortLongToggle value={state.aiMode?.[field] || 'long'} onChange={v => set({ aiMode: { ...state.aiMode, [field]: v } })} />
+                                <button className="tap-btn tap-btn-ai" style={{ fontSize: 10 }} onClick={() => aiRefresh(field)} disabled={state.aiLoading?.[field]}>
+                                  {state.aiLoading?.[field] ? <Spinner /> : '✨'}
+                                </button>
+                              </div>
                             </div>
                             <textarea className="tap-textarea" style={{ minHeight: 60, fontSize: 12 }} value={t[key]}
                               onChange={e => setState(prev => { const tickers = [...prev.tickers]; tickers[i] = { ...tickers[i], [key]: e.target.value }; return { ...prev, tickers } })}
@@ -676,9 +826,12 @@ export default function TradeArchitectPro() {
             <div className="tap-wb-block" style={{ marginBottom: 16 }}>
               <div className="tap-wb-block-header">
                 <div className="tap-wb-block-title">🔗 Basket Dynamics</div>
-                <button className="tap-btn tap-btn-ai" onClick={() => aiRefresh('basketDynamics')} disabled={state.aiLoading?.basketDynamics}>
-                  {state.aiLoading?.basketDynamics ? <><Spinner /> Generating…</> : '✨ AI Refresh'}
-                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <ShortLongToggle value={state.aiMode?.basketDynamics || 'long'} onChange={v => set({ aiMode: { ...state.aiMode, basketDynamics: v } })} />
+                  <button className="tap-btn tap-btn-ai" onClick={() => aiRefresh('basketDynamics')} disabled={state.aiLoading?.basketDynamics}>
+                    {state.aiLoading?.basketDynamics ? <><Spinner /> Generating…</> : '✨ AI Refresh'}
+                  </button>
+                </div>
               </div>
               <div className="tap-wb-block-body">
                 <textarea className="tap-textarea" style={{ minHeight: 100, width: '100%' }} value={state.basketDynamics} onChange={e => set({ basketDynamics: e.target.value })} placeholder="Describe correlation characteristics, macro drivers, and diversification merits…" />
