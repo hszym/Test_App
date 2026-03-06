@@ -54,7 +54,14 @@ Claude Code has **flexibility to propose design improvements** as long as they s
 
 ## Environment Variables
 - `ANTHROPIC_API_KEY` — stored in `.env.local`, never committed to git
-- Additional keys (market data APIs, etc.) to be documented here as added
+- `SG_CLIENT_ID` — SG Markets OAuth2 client ID, stored in `.env.local` and Vercel env vars
+- `SG_CLIENT_SECRET` — SG Markets OAuth2 client secret, stored in `.env.local` and Vercel env vars
+
+### SG Markets API
+- Token endpoint: `https://sso.sgmarkets.com/sgconnect/oauth2/access_token`
+- Scope: `api.sgmarkets-execution-structured-products.v1`
+- All SG API calls go through `/api/sg-price/route.js` — never expose credentials to the frontend
+- Bloomberg ticker format for underlyings: `TICKER US Equity` (adjust suffix for non-US listings)
 
 ---
 

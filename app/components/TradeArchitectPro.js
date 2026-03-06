@@ -480,6 +480,10 @@ body{background:#f3f4f5;color:#202a3e;font-family:${FONT}}
 .tap-dot-gray{background:#6b7280}
 .tap-toast{position:fixed;bottom:24px;right:24px;z-index:300;background:#ffffff;border:1px solid #b38559;border-radius:8px;padding:12px 20px;font-size:13px;color:#b38559;display:flex;align-items:center;gap:8px;animation:slideUp .3s ease}
 @keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+.tap-live-badge{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700;background:#f0fdf4;color:#059669;border:1px solid #86efac;letter-spacing:.05em;text-transform:uppercase}
+.tap-live-badge::before{content:'';width:6px;height:6px;border-radius:50%;background:#059669;display:inline-block}
+.tap-live-quote{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#f0fdf4;border:1px solid #86efac;border-radius:6px;margin-bottom:12px}
+.tap-live-quote-val{font-family:${MONO};font-size:14px;font-weight:700;color:#059669}
 `
 
 function Spinner() { return <span className="spin">⟳</span> }
@@ -529,6 +533,8 @@ export default function TradeArchitectPro() {
   const [toast, setToast] = useState(null)
   const [drag, setDrag] = useState(false)
   const fileRef = useRef()
+  const [sgLoading, setSgLoading] = useState({})
+  const [sgLivePrices, setSgLivePrices] = useState({})
 
   useEffect(() => {
     try {
@@ -651,6 +657,34 @@ export default function TradeArchitectPro() {
     }
     reader.readAsText(file)
   }, [])
+
+  const fetchSGPrice = useCallback(async (productKey) => {
+    const activeSymbols = state.tickers.filter(t => t.symbol).map(t => t.symbol)
+    if (activeSymbols.length === 0) { showToast('Add tickers first'); return }
+    setSgLoading(prev => ({ ...prev, [productKey]: true }))
+    const maturityRow = state.productRows.find(r => r.key.toLowerCase().includes('maturity'))
+    const maturityMonths = parseInt(maturityRow?.val) || 24
+    const barrierRow = state.productRows.find(r => r.key.toLowerCase().includes('barrier'))
+    const barrierPct = parseFloat((barrierRow?.val || '70%').replace('%', '').trim())
+    const barrier = isNaN(barrierPct) ? 0.70 : barrierPct / 100
+    try {
+      const res = await fetch('/api/sg-price', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productType: productKey, underlyings: activeSymbols, maturityMonths, barrier, currency: state.pricingCurrency }),
+      })
+      const data = await res.json()
+      if (data.error) throw new Error(data.error)
+      const pct = typeof data.value === 'number' ? (data.value * 100).toFixed(2) + '% p.a.' : String(data.value)
+      setSgLivePrices(prev => ({ ...prev, [productKey]: pct }))
+      showToast('Live price received: ' + pct)
+    } catch (err) {
+      console.error('SG price error:', err)
+      showToast('SG pricing error: ' + (err?.message || 'Unknown error'))
+    } finally {
+      setSgLoading(prev => ({ ...prev, [productKey]: false }))
+    }
+  }, [state])
 
   const buildEmailExport = () => {
     const activeTickers = state.tickers.filter(t => t.symbol)
@@ -910,12 +944,24 @@ export default function TradeArchitectPro() {
               <div key={key} className="tap-grid-section">
                 <div className="tap-grid-section-header">
                   <div className="tap-grid-section-title">{title}</div>
-                  <label className="tap-checkbox-row">
-                    <input type="checkbox" checked={state.showGrids[key]} onChange={e => set({ showGrids: { ...state.showGrids, [key]: e.target.checked } })} />
-                    Include in Export
-                  </label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <button className="tap-btn tap-btn-secondary tap-btn-sm" onClick={() => fetchSGPrice(key)} disabled={sgLoading[key]}>
+                      {sgLoading[key] ? <><Spinner /> Quoting…</> : '📡 Get Live Price'}
+                    </button>
+                    <label className="tap-checkbox-row">
+                      <input type="checkbox" checked={state.showGrids[key]} onChange={e => set({ showGrids: { ...state.showGrids, [key]: e.target.checked } })} />
+                      Include in Export
+                    </label>
+                  </div>
                 </div>
                 <div className="tap-card" style={{ padding: 16 }}>
+                  {sgLivePrices[key] && (
+                    <div className="tap-live-quote">
+                      <span className="tap-live-badge">Live</span>
+                      <span style={{ fontSize: 11, color: '#4a5578' }}>Latest quote:</span>
+                      <span className="tap-live-quote-val">{sgLivePrices[key]}</span>
+                    </div>
+                  )}
                   {caps
                     ? <div><div style={{ fontSize: 11, color: '#4a5578', marginBottom: 10 }}>Fixed caps by tenor: {Object.entries(caps).map(([t, c]) => `${t}: ${c}`).join(' | ')}</div><PricingGrid label={label} rowLabels={rows} colLabels={TENORS} grid={state.pricingGrids[key]} onChange={(r, c, v) => updateGrid(key, r, c, v)} /></div>
                     : <PricingGrid label={label} rowLabels={rows} colLabels={TENORS} grid={state.pricingGrids[key]} onChange={(r, c, v) => updateGrid(key, r, c, v)} note={note} />
