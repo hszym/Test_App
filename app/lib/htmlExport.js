@@ -201,7 +201,7 @@ export function buildHTMLExport(state) {
     rc:       { badge: 'Autocall RC',           desc: 'Guaranteed coupon paid quarterly. Autocall at 100% quarterly from month 6. Capital at risk below the strike.' },
     snowball: { badge: 'Snowball',               desc: 'Memory coupon accumulates if not paid. Autocall at 100% from month 6. Barrier observed at maturity, Strike 100%.' },
     bonus:    { badge: 'Bonus Capped',           desc: '100% capital protection if underlying never touches barrier. Bonus return up to cap level. Full downside if barrier is breached.' },
-    cpn:      { badge: 'Capital Protected Note', desc: 'Capital protection at maturity. Upside participation on the worst of.' },
+    cpn:      { badge: 'Capital Protected Note', desc: 'Capital protection at maturity. Upside participation on the worst of. Strike equal to Protection. No cap' },
   }
 
   const gridDefs = {
