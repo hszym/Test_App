@@ -17,6 +17,7 @@ export async function POST(request) {
   }
 
   try {
+    const client = new Anthropic({ apiKey })
     const resp = await client.messages.create({
       model: 'claude-3-haiku-20240307',
       max_tokens: 1000,
