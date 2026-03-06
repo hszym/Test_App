@@ -479,9 +479,10 @@ export default function TradeArchitectPro() {
       } else {
         setState(prev => ({ ...prev, [field]: result.trim(), aiLoading: { ...prev.aiLoading, [field]: false } }))
       }
-    } catch {
+    } catch (err) {
+      console.error('AI error full details:', err)
       setState(prev => ({ ...prev, aiLoading: { ...prev.aiLoading, [field]: false } }))
-      showToast('AI error — check your API key in Vercel settings')
+      showToast('AI error: ' + (err?.message || 'Unknown error'))
     }
   }, [state])
 
