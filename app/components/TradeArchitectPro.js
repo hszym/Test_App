@@ -56,6 +56,7 @@ const DEFAULT_STATE = {
   pricingCurrency: 'USD',
   aiLoading: {},
   aiMode: {},
+  logoUrl: '',
 }
 
 // ─── AI CALL — hits our own secure Next.js API route, not Anthropic directly ─
@@ -488,6 +489,21 @@ export default function TradeArchitectPro() {
                     <input className="tap-input" value={state[k]} onChange={e => set({ [k]: e.target.value })} placeholder={label} />
                   </div>
                 ))}
+                <div className="tap-field" style={{ gridColumn: '1/-1' }}>
+                  <label className="tap-label">Bank Logo <span style={{ fontWeight: 400, color: '#4a5578' }}>(optional — appears in export header)</span></label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <input type="file" accept="image/*" style={{ fontSize: 12, color: '#a0aec0' }}
+                      onChange={e => {
+                        const file = e.target.files?.[0]
+                        if (!file) return
+                        const reader = new FileReader()
+                        reader.onload = ev => set({ logoUrl: ev.target.result })
+                        reader.readAsDataURL(file)
+                      }} />
+                    {state.logoUrl && <img src={state.logoUrl} alt="logo preview" style={{ height: 32, objectFit: 'contain', border: '1px solid #1e2840', borderRadius: 2, background: '#fff', padding: 2 }} />}
+                    {state.logoUrl && <button className="tap-btn tap-btn-secondary tap-btn-sm" style={{ color: '#f87171' }} onClick={() => set({ logoUrl: '' })}>Remove</button>}
+                  </div>
+                </div>
                 <div className="tap-field" style={{ gridColumn: '1/-1' }}>
                   <label className="tap-label">Disclaimer</label>
                   <textarea className="tap-textarea" value={state.disclaimer} onChange={e => set({ disclaimer: e.target.value })} rows={2} />
