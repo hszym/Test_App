@@ -390,22 +390,23 @@ function PricingGrid({ label, rowLabels, colLabels, grid, onChange, note }) {
 }
 
 export default function TradeArchitectPro() {
-  const [state, setState] = useState(() => {
-    try {
-      if (typeof window !== 'undefined') {
-        const saved = localStorage.getItem('tap_state_v3')
-        if (saved) return { ...DEFAULT_STATE, ...JSON.parse(saved) }
-      }
-    } catch {}
-    return DEFAULT_STATE
-  })
+  const [state, setState] = useState(DEFAULT_STATE)
   const [modal, setModal] = useState(null)
   const [toast, setToast] = useState(null)
   const [drag, setDrag] = useState(false)
   const fileRef = useRef()
 
   useEffect(() => {
-    try { localStorage.setItem('tap_state_v3', JSON.stringify(state)) } catch {}
+    try {
+      const saved = localStorage.getItem('tap_state_v3')
+      if (saved) setState(prev => ({ ...prev, ...JSON.parse(saved) }))
+    } catch {}
+  }, [])
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try { localStorage.setItem('tap_state_v3', JSON.stringify(state)) } catch {}
+    }
   }, [state])
 
   const set = useCallback((updater) => setState(prev => {
@@ -830,7 +831,7 @@ export default function TradeArchitectPro() {
 
             <div className="tap-nav">
               <button className="tap-btn tap-btn-secondary" onClick={() => set({ step: 3 })}>← Back</button>
-              <button className="tap-btn tap-btn-secondary" onClick={() => { if (window.confirm('Reset all data?')) { localStorage.removeItem('tap_state_v3'); setState(DEFAULT_STATE) } }}>🗑 Reset</button>
+              <button className="tap-btn tap-btn-secondary" onClick={() => { if (window.confirm('Reset all data?')) { if (typeof window !== 'undefined') localStorage.removeItem('tap_state_v3'); setState(DEFAULT_STATE) } }}>🗑 Reset</button>
             </div>
           </div>
         )}
