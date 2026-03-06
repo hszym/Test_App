@@ -60,11 +60,11 @@ const DEFAULT_STATE = {
 }
 
 // ─── AI CALL — hits our own secure Next.js API route, not Anthropic directly ─
-async function callClaude(prompt) {
+async function callClaude(prompt, noWebSearch = false) {
   const res = await fetch('/api/claude', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt }),
+    body: JSON.stringify({ prompt, noWebSearch }),
   })
   const data = await res.json()
   if (data.error) throw new Error(data.error)
@@ -252,6 +252,27 @@ body{background:#f3f4f5;color:#202a3e;font-family:${FONT}}
 .tap-live-badge::before{content:'';width:6px;height:6px;border-radius:50%;background:#059669;display:inline-block}
 .tap-live-quote{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#f0fdf4;border:1px solid #86efac;border-radius:6px;margin-bottom:12px}
 .tap-live-quote-val{font-family:${MONO};font-size:14px;font-weight:700;color:#059669}
+.rec-btn{width:100%;padding:13px 20px;background:#b38559;color:#202a3e;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;letter-spacing:.04em;margin-top:8px;transition:opacity .2s}
+.rec-btn:hover{opacity:.88}
+.rec-product-name{font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:600;color:#202a3e;line-height:1.2;margin-bottom:8px}
+.rec-confidence-high{display:inline-block;background:#b38559;color:#fff;font-size:10px;font-weight:700;padding:3px 10px;border-radius:3px;letter-spacing:.06em;text-transform:uppercase;margin-bottom:16px}
+.rec-confidence-med{display:inline-block;background:#6b7a99;color:#fff;font-size:10px;font-weight:700;padding:3px 10px;border-radius:3px;letter-spacing:.06em;text-transform:uppercase;margin-bottom:16px}
+.rec-justification{font-size:13px;color:#444;line-height:1.8;padding:14px 16px;background:#f9f9f9;border-left:3px solid #202a3e;margin-bottom:18px}
+.rec-section-title{font-size:10px;font-weight:700;color:#202a3e;letter-spacing:.1em;text-transform:uppercase;margin:0 0 10px;padding-bottom:6px;border-bottom:1px solid #e2e8f0}
+.rec-params{background:#fff;border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;margin-bottom:16px}
+.rec-param-row{display:flex;justify-content:space-between;padding:8px 14px;font-size:12px;border-bottom:1px solid #f5f5f5}
+.rec-param-row:last-child{border-bottom:none}
+.rec-param-key{color:#6b7280}
+.rec-param-val{font-weight:600;color:#202a3e;font-family:${MONO}}
+.rec-apply-btn{width:100%;padding:11px;background:#202a3e;color:#b38559;border:1px solid #b38559;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;letter-spacing:.04em;margin-bottom:16px;transition:background .15s}
+.rec-apply-btn:hover{background:#2e3c56}
+.rec-why-btn{background:none;border:none;cursor:pointer;font-size:12px;color:#b38559;font-weight:600;padding:6px 0;display:flex;align-items:center;gap:6px;width:100%;border-top:1px solid #e2e8f0;padding-top:12px}
+.rec-why-list{margin-top:10px;display:flex;flex-direction:column;gap:6px}
+.rec-why-item{display:flex;gap:10px;padding:8px 12px;background:#f9f9f9;border-left:2px solid #e2e8f0;border-radius:0 4px 4px 0}
+.rec-why-product{font-size:10px;font-weight:700;color:#202a3e;min-width:80px;text-transform:uppercase;letter-spacing:.04em;padding-top:1px}
+.rec-why-reason{font-size:11px;color:#6b7280;line-height:1.6}
+.rec-loading{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:64px 20px;color:#6b7a99;font-size:13px;gap:16px}
+.rec-loading-icon{font-size:32px;animation:spin .8s linear infinite;display:inline-block}
 `
 
 function Spinner() { return <span className="spin">⟳</span> }
@@ -295,6 +316,50 @@ function PricingGrid({ label, rowLabels, colLabels, grid, onChange, note }) {
   )
 }
 
+function RecCard({ data, onApply }) {
+  const [showWhy, setShowWhy] = useState(false)
+  const paramLabels = {
+    tenor: 'Maturity', barrier: 'Barrier Level', couponFrequency: 'Coupon Frequency',
+    autocallFrequency: 'Autocall', protection: 'Capital Protection',
+  }
+  return (
+    <div>
+      <div className="rec-product-name">{data.recommended}</div>
+      <span className={data.confidence === 'High' ? 'rec-confidence-high' : 'rec-confidence-med'}>
+        {data.confidence} Confidence
+      </span>
+      <div className="rec-justification">{data.justification}</div>
+      <div className="rec-section-title">Suggested Parameters</div>
+      <div className="rec-params">
+        {Object.entries(data.suggestedParams || {}).map(([k, v]) => (
+          <div key={k} className="rec-param-row">
+            <span className="rec-param-key">{paramLabels[k] || k}</span>
+            <span className="rec-param-val">{v}</span>
+          </div>
+        ))}
+      </div>
+      <button className="rec-apply-btn" onClick={onApply}>✓ Apply Parameters to Product Table</button>
+      {data.whyNotOthers && (
+        <>
+          <button className="rec-why-btn" onClick={() => setShowWhy(p => !p)}>
+            Why not the others? {showWhy ? '▲' : '▼'}
+          </button>
+          {showWhy && (
+            <div className="rec-why-list">
+              {Object.entries(data.whyNotOthers).map(([prod, reason]) => (
+                <div key={prod} className="rec-why-item">
+                  <span className="rec-why-product">{prod}</span>
+                  <span className="rec-why-reason">{reason}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
 export default function TradeArchitectPro() {
   const [state, setState] = useState(DEFAULT_STATE)
   const [modal, setModal] = useState(null)
@@ -303,6 +368,7 @@ export default function TradeArchitectPro() {
   const fileRef = useRef()
   const [sgLoading, setSgLoading] = useState({})
   const [sgLivePrices, setSgLivePrices] = useState({})
+  const [rec, setRec] = useState({ open: false, loading: false, data: null })
 
   useEffect(() => {
     try {
@@ -403,6 +469,79 @@ export default function TradeArchitectPro() {
       showToast('AI error: ' + (err?.message || 'Unknown error'))
     }
   }, [state])
+
+  const handleRecommendation = useCallback(async () => {
+    const loaded = state.tickers.filter(t => t.symbol && t.data)
+    if (loaded.length < 2) return
+    setRec({ open: true, loading: true, data: null })
+    const tickerLines = loaded.map(t => {
+      const p = t.data
+      const pos = Math.round(((p.price - p.low52) / (p.high52 - p.low52)) * 100)
+      return `${t.symbol}:\n- Current price: ${p.price} | Change: ${p.change}%\n- 52W Low: ${p.low52} | 52W High: ${p.high52}\n- 52W Position: ${pos}% (0=at low, 100=at high)\n- Implied Volatility: ${p.iv}%`
+    }).join('\n')
+    const prompt = `You are a senior structured products advisor. Analyse this basket and recommend the single most suitable structured product for current market conditions.
+
+BASKET DATA:
+${tickerLines}
+
+ANALYSIS FRAMEWORK:
+- High IV (>35%) on majority of basket → favours income products (RC, Snowball) as option premium is rich
+- Low IV (<20%) → favours participation products (Bonus, CPN) as protection is cheaper
+- Basket at low 52W position (<30%) → potential bounce, favour Bonus Note or Autocall with aggressive barriers
+- Basket at high 52W position (>70%) → downside risk, favour capital protection or conservative barriers
+- Mixed IV with moderate 52W position → Snowball offers best risk/reward
+
+PRODUCTS AVAILABLE:
+1. Autocall Reverse Convertible — income, quarterly coupon, KI barrier
+2. Snowball (Phoenix) — memory coupon, autocall, suitable for range markets
+3. Bonus Note — participation + protection if barrier not touched
+4. Capital Protected Note (CPN) — full capital protection, upside participation
+
+Respond ONLY in this exact JSON format:
+{
+  "recommended": "Autocall RC",
+  "confidence": "High",
+  "justification": "3-4 sentence explanation referencing the actual IV and 52W data",
+  "suggestedParams": {
+    "tenor": "24M",
+    "barrier": "65%",
+    "couponFrequency": "Quarterly",
+    "autocallFrequency": "Quarterly from month 6",
+    "protection": "60%"
+  },
+  "whyNotOthers": {
+    "product2": "reason",
+    "product3": "reason",
+    "product4": "reason"
+  }
+}`
+    try {
+      const raw = await callClaude(prompt, true)
+      const jsonMatch = raw.match(/\{[\s\S]*\}/)
+      const data = JSON.parse(jsonMatch ? jsonMatch[0] : raw)
+      setRec({ open: true, loading: false, data })
+    } catch (err) {
+      setRec({ open: false, loading: false, data: null })
+      showToast('Recommendation error: ' + (err?.message || 'Unknown'))
+    }
+  }, [state.tickers])
+
+  const applyRecommendation = useCallback(() => {
+    const sp = rec.data?.suggestedParams
+    if (!sp) return
+    const newRows = [
+      { key: 'Maturity', val: sp.tenor || '24 Months' },
+      { key: 'Worst-of (WO) Barrier', val: sp.barrier || '70%' },
+      { key: 'Autocall Barrier', val: '100%' },
+      { key: 'Protection Barrier', val: sp.protection || sp.barrier || '60%' },
+      { key: 'Coupon Barrier', val: sp.barrier || '70%' },
+      { key: 'Coupon Frequency', val: sp.couponFrequency || 'Quarterly' },
+      { key: 'Autocall', val: sp.autocallFrequency || 'Quarterly from month 6' },
+    ]
+    setState(prev => ({ ...prev, productRows: newRows }))
+    setRec(prev => ({ ...prev, open: false }))
+    showToast('Parameters applied from AI recommendation')
+  }, [rec.data])
 
   const updateGrid = useCallback((gridName, ri, ci, val) => {
     setState(prev => {
@@ -618,6 +757,12 @@ export default function TradeArchitectPro() {
               </div>
             </div>
 
+            {activeTickers.length >= 2 && (
+              <button className="rec-btn" onClick={handleRecommendation}>
+                🎯 Get AI Product Recommendation
+              </button>
+            )}
+
             <div className="tap-wb-block" style={{ marginBottom: 16 }}>
               <div className="tap-wb-block-header">
                 <div className="tap-wb-block-title">🔗 Basket Dynamics</div>
@@ -821,6 +966,28 @@ export default function TradeArchitectPro() {
             <div className="tap-modal-footer">
               <button className="tap-btn tap-btn-primary" onClick={() => copyToClipboard(modal.content, modal.type)}>📋 Copy to Clipboard</button>
               <button className="tap-btn tap-btn-secondary" onClick={() => setModal(null)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {rec.open && (
+        <div className="tap-modal-overlay" onClick={e => e.target === e.currentTarget && !rec.loading && setRec(prev => ({ ...prev, open: false }))}>
+          <div className="tap-modal" style={{ maxWidth: 600 }}>
+            <div className="tap-modal-header">
+              <div className="tap-modal-title">🎯 AI Product Recommendation</div>
+              {!rec.loading && <button className="tap-btn tap-btn-secondary tap-btn-sm" onClick={() => setRec(prev => ({ ...prev, open: false }))}>✕ Close</button>}
+            </div>
+            <div className="tap-modal-body">
+              {rec.loading ? (
+                <div className="rec-loading">
+                  <span className="rec-loading-icon">⟳</span>
+                  <div>Analysing market conditions…</div>
+                  <div style={{ fontSize: 11, color: '#4a5578' }}>Evaluating IV levels, 52W positioning, and basket characteristics</div>
+                </div>
+              ) : rec.data ? (
+                <RecCard data={rec.data} onApply={applyRecommendation} />
+              ) : null}
             </div>
           </div>
         </div>

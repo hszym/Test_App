@@ -28,23 +28,24 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
-  const { prompt } = await request.json()
+  const { prompt, noWebSearch } = await request.json()
   const apiKey = process.env.ANTHROPIC_API_KEY
-  console.log('API KEY EXISTS:', !!apiKey)
   if (!apiKey) {
-    console.error('Anthropic API key missing in environment')
     return NextResponse.json({ error: 'ANTHROPIC_API_KEY not configured' }, { status: 500 })
   }
 
   try {
     const client = new Anthropic({ apiKey })
-    const resp = await client.messages.create({
+    const createParams = {
       model: 'claude-sonnet-4-6',
-      max_tokens: 2048,
-      system: SYSTEM_PROMPT,
-      tools: [{ type: 'web_search_20250305', name: 'web_search' }],
-      messages: [{ role: 'user', content: prompt }]
-    })
+      max_tokens: noWebSearch ? 1024 : 2048,
+      messages: [{ role: 'user', content: prompt }],
+    }
+    if (!noWebSearch) {
+      createParams.system = SYSTEM_PROMPT
+      createParams.tools = [{ type: 'web_search_20250305', name: 'web_search' }]
+    }
+    const resp = await client.messages.create(createParams)
     const text = resp.content
       .filter(block => block.type === 'text')
       .map(block => block.text)
@@ -53,7 +54,6 @@ export async function POST(request) {
     return NextResponse.json({ text })
   } catch (error) {
     console.error('Anthropic API request failed:', error)
-    const message = error?.message || 'Unknown error'
-    return NextResponse.json({ error: message }, { status: 500 })
+    return NextResponse.json({ error: error?.message || 'Unknown error' }, { status: 500 })
   }
 }
