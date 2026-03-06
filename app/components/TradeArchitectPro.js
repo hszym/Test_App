@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { buildHTMLExport, buildEmailExport } from '../lib/htmlExport'
 
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'CHF']
 const TENORS = ['12M', '18M', '24M', '36M']
@@ -121,240 +122,6 @@ function asciiTable(title, rowLabels, colLabels, grid) {
     out += '|' + r.padEnd(rowW) + colLabels.map((_, ci) => '|' + (grid?.[ri]?.[ci] || '—').padEnd(colW)).join('') + '|\n'
   })
   return out + sep + '\n'
-}
-
-function buildHTMLExport(state) {
-  const activeTickers = state.tickers.filter(t => t.symbol && t.data)
-  const dateStr = new Date().toLocaleDateString('en-GB', { year: 'numeric', month: 'long', day: 'numeric' })
-
-  const gridHTML = (label, rowLabels, colLabels, grid, caps) => {
-    const headerCells = colLabels.map(c => `<th>${c}</th>`).join('')
-    const rows = rowLabels.map((r, ri) =>
-      `<tr class="${ri % 2 === 0 ? 'row-even' : 'row-odd'}">
-        <td class="row-label">${r}</td>
-        ${colLabels.map((c, ci) =>
-          `<td>${grid?.[ri]?.[ci] || '\u2014'}${caps ? `<br/><span class="cap-note">Cap ${caps[c]}</span>` : ''}</td>`
-        ).join('')}
-      </tr>`
-    ).join('')
-    return `<table class="pg-table"><thead><tr><th class="row-label-head">${label}</th>${headerCells}</tr></thead><tbody>${rows}</tbody></table>`
-  }
-
-  const stockCards = activeTickers.map(t => {
-    const p = t.data
-    const pct = pos52w(p?.price, p?.low52, p?.high52)
-    return `<div class="stock-card">
-      <div class="sc-header">
-        <span class="sc-sym">${t.symbol}</span>
-        <span class="sc-cur">${t.currency}</span>
-        <span class="sc-price">${fmt(p?.price)}</span>
-        <span class="sc-chg ${p?.change >= 0 ? 'pos' : 'neg'}">${p?.change >= 0 ? '\u25b2' : '\u25bc'} ${fmt(Math.abs(p?.change))}%</span>
-      </div>
-      <div class="sc-bar-wrap"><div class="sc-bar-fill" style="width:${pct}%"></div><div class="sc-bar-dot" style="left:${pct}%"></div></div>
-      <div class="sc-range">${fmt(p?.low52)} <span class="sc-range-label">52W Range</span> ${fmt(p?.high52)}</div>
-      <div class="sc-iv">Implied Volatility: <strong>${fmt(p?.iv)}%</strong></div>
-      ${t.bullCase ? `<div class="sc-section sc-bull"><strong>Bull Case</strong><p>${t.bullCase}</p></div>` : ''}
-      ${t.bearCase ? `<div class="sc-section sc-bear"><strong>Bear Case</strong><p>${t.bearCase}</p></div>` : ''}
-      ${t.entryNote ? `<div class="sc-section sc-entry"><strong>Entry Note</strong><p>${t.entryNote}</p></div>` : ''}
-    </div>`
-  }).join('')
-
-  const prodRows = (state.productRows || []).map((r, i) =>
-    `<tr class="${i % 2 === 0 ? 'row-even' : 'row-odd'}"><td class="param-key">${r.key}</td><td class="param-val">${r.val}</td></tr>`
-  ).join('')
-
-  const gridsHTML = [
-    state.showGrids.rc ? `<div class="grid-block">${gridHTML('Strike', RC_STRIKES, TENORS, state.pricingGrids.rc)}</div>` : '',
-    state.showGrids.snowball ? `<div class="grid-block">${gridHTML('Barrier/Coupon', SNOWBALL_BARRIERS, TENORS, state.pricingGrids.snowball)}</div>` : '',
-    state.showGrids.bonus ? `<div class="grid-block">${gridHTML('Barrier', BONUS_BARRIERS, TENORS, state.pricingGrids.bonus, BONUS_CAPS)}</div>` : '',
-    state.showGrids.cpn ? `<div class="grid-block">${gridHTML('Protection', CPN_PROTECTIONS, TENORS, state.pricingGrids.cpn)}</div>` : '',
-  ].filter(Boolean).join('')
-
-  const gridTitles = { rc: 'Autocall Reverse Convertible', snowball: 'Snowball', bonus: 'Bonus Note', cpn: 'Capital Protected Note' }
-  const pricingSections = [
-    state.showGrids.rc ? { key: 'rc', title: gridTitles.rc } : null,
-    state.showGrids.snowball ? { key: 'snowball', title: gridTitles.snowball } : null,
-    state.showGrids.bonus ? { key: 'bonus', title: gridTitles.bonus } : null,
-    state.showGrids.cpn ? { key: 'cpn', title: gridTitles.cpn } : null,
-  ].filter(Boolean)
-
-  const pricingHTML = pricingSections.map(({ key, title }) => {
-    const grids = { rc: gridHTML('Strike', RC_STRIKES, TENORS, state.pricingGrids.rc), snowball: gridHTML('Barrier/Coupon', SNOWBALL_BARRIERS, TENORS, state.pricingGrids.snowball), bonus: gridHTML('Barrier', BONUS_BARRIERS, TENORS, state.pricingGrids.bonus, BONUS_CAPS), cpn: gridHTML('Protection', CPN_PROTECTIONS, TENORS, state.pricingGrids.cpn) }
-    return `<div class="section pricing-section">
-      <h3>${title} <span class="currency-tag">${state.pricingCurrency}</span></h3>
-      ${grids[key]}
-    </div>`
-  }).join('')
-
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<title>${state.bankName || 'Plurimi Wealth'} \u2014 Structured Product Pitch</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,600&family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<style>
-@page { size: A4; margin: 20mm }
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0 }
-body { font-family: 'Montserrat', sans-serif; color: #333; background: #fff; font-size: 11px; line-height: 1.8; -webkit-print-color-adjust: exact; print-color-adjust: exact }
-
-/* ── Cover page ── */
-.cover { width: 100%; min-height: 100vh; display: flex; flex-direction: column; background: #fff; page-break-after: always }
-.cover-top { background: #202a3e; padding: 64px 72px 56px; color: #fff; position: relative }
-.cover-top::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 4px; background: #b38559 }
-.cover-bank-name { font-family: 'Cormorant Garamond', serif; font-size: 56px; font-weight: 600; color: #fff; letter-spacing: .02em; line-height: 1.1; margin-bottom: 24px }
-.cover-gold-line { width: 72px; height: 2px; background: #b38559; margin-bottom: 20px }
-.cover-subtitle { font-family: 'Montserrat', sans-serif; font-size: 11px; font-weight: 600; color: #b38559; letter-spacing: .2em; text-transform: uppercase }
-.cover-body { flex: 1; padding: 56px 72px; display: flex; flex-direction: column; justify-content: flex-end }
-.cover-meta { border-top: 1px solid #e2e8f0; padding-top: 28px; display: flex; justify-content: space-between; align-items: flex-end }
-.cover-meta-label { font-size: 9px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: #999; margin-bottom: 6px }
-.cover-client-name { font-family: 'Cormorant Garamond', serif; font-size: 24px; font-weight: 600; color: #202a3e }
-.cover-client-email { font-size: 11px; color: #777; margin-top: 4px }
-.cover-date-block { text-align: right }
-.cover-date { font-size: 12px; color: #555 }
-.cover-prepared-by { font-size: 10px; color: #aaa; margin-top: 4px; font-style: italic }
-
-/* ── Main content ── */
-.page { max-width: 794px; margin: 0 auto; padding: 60px 72px }
-h2 { font-family: 'Cormorant Garamond', serif; font-size: 20px; font-weight: 600; color: #202a3e; margin: 40px 0 14px; padding-bottom: 8px; border-bottom: 1px solid #e2e8f0 }
-h3 { font-family: 'Cormorant Garamond', serif; font-size: 16px; font-weight: 600; color: #202a3e; margin: 28px 0 10px }
-.section { page-break-inside: avoid; margin-bottom: 12px }
-
-/* ── Thesis ── */
-.thesis { font-size: 11px; color: #333; line-height: 1.8; padding: 20px 24px; border-left: 3px solid #202a3e; background: #f9f9f9 }
-
-/* ── Basket dynamics ── */
-.basket-text { font-size: 11px; color: #444; line-height: 1.8 }
-
-/* ── Stock cards ── */
-.stock-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 16px; margin: 12px 0 }
-.stock-card { border: 1px solid #e2e8f0; border-top: 3px solid #202a3e; padding: 14px; page-break-inside: avoid }
-.sc-header { display: flex; align-items: baseline; gap: 8px; margin-bottom: 10px; flex-wrap: wrap }
-.sc-sym { font-family: 'Cormorant Garamond', serif; font-size: 20px; font-weight: 700; color: #202a3e }
-.sc-cur { font-size: 9px; color: #999; background: #f3f4f5; padding: 2px 6px; border-radius: 2px }
-.sc-price { font-size: 13px; font-weight: 600; font-family: 'Courier New', monospace; margin-left: auto; color: #202a3e }
-.sc-chg { font-size: 10px; font-family: 'Courier New', monospace; font-weight: 600 }
-.sc-chg.pos { color: #059669 } .sc-chg.neg { color: #dc2626 }
-.sc-bar-wrap { position: relative; height: 3px; background: #e2e8f0; border-radius: 2px; margin: 8px 0 }
-.sc-bar-fill { position: absolute; top: 0; left: 0; height: 100%; background: linear-gradient(90deg, #dc2626, #f59e0b, #059669); border-radius: 2px }
-.sc-bar-dot { position: absolute; top: -4px; width: 10px; height: 10px; background: #202a3e; border: 2px solid #fff; border-radius: 50%; transform: translateX(-50%); box-shadow: 0 1px 3px rgba(0,0,0,.2) }
-.sc-range { font-size: 9px; color: #aaa; font-family: 'Courier New', monospace; display: flex; justify-content: space-between; margin-top: 2px }
-.sc-range-label { color: #ccc }
-.sc-iv { font-size: 10px; color: #666; margin-top: 6px }
-.sc-section { margin-top: 10px; padding: 8px 10px; font-size: 10px; line-height: 1.7 }
-.sc-section strong { display: block; font-size: 9px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 3px }
-.sc-section p { margin: 0; color: #444 }
-.sc-bull { background: #f0fdf4; border-left: 2px solid #059669 } .sc-bull strong { color: #059669 }
-.sc-bear { background: #fef2f2; border-left: 2px solid #dc2626 } .sc-bear strong { color: #dc2626 }
-.sc-entry { background: #f5f7ff; border-left: 2px solid #202a3e } .sc-entry strong { color: #202a3e }
-
-/* ── Product parameters ── */
-.prod-table { width: 100%; border-collapse: collapse; margin: 8px 0 }
-.prod-table tr.row-even { background: #f9f9f9 } .prod-table tr.row-odd { background: #fff }
-.param-key { padding: 10px 16px; font-size: 11px; color: #666; font-weight: 500; width: 45%; border-bottom: 1px solid #f0f0f0 }
-.param-val { padding: 10px 16px; font-size: 11px; color: #202a3e; font-family: 'Courier New', monospace; font-weight: 600; border-bottom: 1px solid #f0f0f0 }
-
-/* ── Pricing tables ── */
-.pricing-section { page-break-inside: avoid }
-.currency-tag { font-family: 'Montserrat', sans-serif; font-size: 10px; font-weight: 600; color: #b38559; letter-spacing: .06em }
-.pg-table { width: 100%; border-collapse: collapse; margin: 8px 0 }
-.pg-table thead tr { background: #202a3e; border-bottom: 3px solid #b38559 }
-.pg-table th { color: #fff; padding: 10px 16px; text-align: center; font-size: 10px; font-weight: 600; letter-spacing: .06em; font-family: 'Montserrat', sans-serif; border: 1px solid #2e3c56 }
-.pg-table th.row-label-head { text-align: left }
-.pg-table tr.row-even { background: #f9f9f9 } .pg-table tr.row-odd { background: #fff }
-.pg-table td { padding: 10px 16px; text-align: center; font-family: 'Courier New', monospace; font-size: 11px; color: #202a3e; border: 1px solid #e8e8e8 }
-.row-label { text-align: left !important; color: #666; font-weight: 500; font-family: 'Montserrat', sans-serif; font-size: 10px }
-.cap-note { font-size: 8px; color: #aaa; display: block; margin-top: 1px }
-
-/* ── Disclaimer ── */
-.disclaimer { margin-top: 48px; padding-top: 16px; border-top: 1px solid #e2e8f0; font-size: 9px; color: #aaa; line-height: 1.7; font-style: italic }
-
-@media print {
-  body { font-size: 10px }
-  .cover { min-height: 297mm; page-break-after: always }
-  .page { padding: 0; max-width: 100% }
-  .stock-cards { grid-template-columns: repeat(3, 1fr) }
-  .section { page-break-inside: avoid }
-}
-</style>
-</head>
-<body>
-
-<div class="cover">
-  <div class="cover-top">
-    <div class="cover-bank-name">${state.bankName || 'Plurimi Wealth'}</div>
-    <div class="cover-gold-line"></div>
-    <div class="cover-subtitle">Structured Product Pitch</div>
-  </div>
-  <div class="cover-body">
-    <div class="cover-meta">
-      <div>
-        <div class="cover-meta-label">Prepared for</div>
-        <div class="cover-client-name">${state.clientName || 'Institutional Client'}</div>
-        ${state.clientEmail ? `<div class="cover-client-email">${state.clientEmail}</div>` : ''}
-      </div>
-      <div class="cover-date-block">
-        <div class="cover-date">${dateStr}</div>
-        <div class="cover-prepared-by">Trade Architect Pro</div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div class="page">
-  <div class="section">
-    <h2>Investment Thesis</h2>
-    <div class="thesis">${(state.thesis || '').replace(/\n/g, '<br/>')}</div>
-  </div>
-
-  <div class="section">
-    <h2>Underlying Assets</h2>
-    <div class="stock-cards">${stockCards}</div>
-  </div>
-
-  <div class="section">
-    <h2>Basket Dynamics</h2>
-    <div class="basket-text">${(state.basketDynamics || '').replace(/\n/g, '<br/>')}</div>
-  </div>
-
-  <div class="section">
-    <h2>Product Parameters</h2>
-    <table class="prod-table"><tbody>${prodRows}</tbody></table>
-  </div>
-
-  ${pricingHTML ? `<div class="section"><h2>Indicative Pricing</h2></div>${pricingHTML}` : ''}
-
-  <div class="disclaimer">${state.disclaimer}</div>
-</div>
-
-</body>
-</html>`
-}
-</style></head><body>
-<div class="page">
-  <div class="cover-header">
-    <div>
-      <div class="bank-name">${state.bankName || 'Investment Bank'}</div>
-      <div style="font-size:11px;color:#94a3b8;margin-top:2px">Structured Products | Trade Architect Pro</div>
-    </div>
-    <div class="client-info">
-      <div class="client-name">${state.clientName || 'Institutional Client'}</div>
-      <div>${state.clientEmail || ''}</div>
-      <div>${new Date().toLocaleDateString('en-GB', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
-    </div>
-  </div>
-  <h2>Investment Thesis</h2>
-  <div class="thesis">${(state.thesis || '').replace(/\n/g, '<br/>')}</div>
-  <h2>Underlying Assets</h2>
-  <div class="stock-cards">${stockCards}</div>
-  <h2>Basket Dynamics</h2>
-  <div style="color:#334155;font-size:13px;line-height:1.8">${(state.basketDynamics || '').replace(/\n/g, '<br/>')}</div>
-  <h2>Product Parameters</h2>
-  <table class="prod-table"><tbody>${prodRows}</tbody></table>
-  ${gridsHTML ? `<h2>Indicative Pricing</h2>${gridsHTML}` : ''}
-  <div class="disclaimer">${state.disclaimer}</div>
-</div>
-</body></html>`
 }
 
 // ─── STYLES ──────────────────────────────────────────────────────────────────
@@ -686,28 +453,6 @@ export default function TradeArchitectPro() {
     }
   }, [state])
 
-  const buildEmailExport = () => {
-    const activeTickers = state.tickers.filter(t => t.symbol)
-    let txt = `INVESTMENT PITCH — ${state.bankName || ''}\nClient: ${state.clientName || ''} | ${state.clientEmail || ''}\nDate: ${new Date().toLocaleDateString('en-GB')}\n\n`
-    txt += `${'='.repeat(60)}\nINVESTMENT THESIS\n${'='.repeat(60)}\n${state.thesis || ''}\n\n`
-    txt += `${'='.repeat(60)}\nUNDERLYING ASSETS\n${'='.repeat(60)}\n`
-    activeTickers.forEach(t => {
-      txt += `\n${t.symbol} — ${t.data ? fmt(t.data.price) : 'N/A'}\n`
-      if (t.bullCase) txt += `  Bull: ${t.bullCase}\n`
-      if (t.bearCase) txt += `  Bear: ${t.bearCase}\n`
-      if (t.entryNote) txt += `  Entry: ${t.entryNote}\n`
-    })
-    txt += `\n${'='.repeat(60)}\nPRODUCT PARAMETERS\n${'='.repeat(60)}\n`
-    ;(state.productRows || []).forEach(r => { txt += `  ${(r.key || '').padEnd(24)}: ${r.val || ''}\n` })
-    txt += '\n'
-    if (state.showGrids.rc) txt += asciiTable('AUTOCALL RC', RC_STRIKES, TENORS, state.pricingGrids.rc) + '\n'
-    if (state.showGrids.snowball) txt += asciiTable('SNOWBALL', SNOWBALL_BARRIERS, state.pricingGrids.snowball) + '\n'
-    if (state.showGrids.bonus) txt += asciiTable('BONUS NOTE', BONUS_BARRIERS, TENORS, state.pricingGrids.bonus) + '\n'
-    if (state.showGrids.cpn) txt += asciiTable('CPN', CPN_PROTECTIONS, TENORS, state.pricingGrids.cpn) + '\n'
-    txt += `\n${'─'.repeat(60)}\n${state.disclaimer}`
-    return txt
-  }
-
   const activeTickers = state.tickers.filter(t => t.symbol && t.data)
 
   return (
@@ -981,7 +726,7 @@ export default function TradeArchitectPro() {
           <div>
             <div className="tap-section-title">Export Deliverables</div>
             <div className="tap-export-row">
-              <div className="tap-export-card" onClick={() => setModal({ type: 'email', content: buildEmailExport() })}>
+              <div className="tap-export-card" onClick={() => setModal({ type: 'email', content: buildEmailExport(state) })}>
                 <div className="tap-export-card-icon">✉️</div>
                 <div className="tap-export-card-title">Email Export</div>
                 <div className="tap-export-card-desc">Plain text with ASCII pricing tables. Copy and paste into any email client.</div>
