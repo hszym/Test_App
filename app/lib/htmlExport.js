@@ -87,14 +87,20 @@ h2 { font-family: 'Cormorant Garamond', serif; font-size: 19px; font-weight: 600
 .param-val { color: #202a3e; font-family: 'Courier New', monospace; font-weight: 600; white-space: nowrap }
 
 .pricing-wrap { padding: 22px 40px 0 }
-.pricing-block { margin-bottom: 20px; page-break-inside: avoid }
-.pricing-title { font-family: 'Cormorant Garamond', serif; font-size: 15px; font-weight: 600; color: #202a3e; margin: 0 0 8px; display: flex; align-items: center; gap: 10px }
+.pricing-block { margin-bottom: 12px; page-break-inside: avoid }
+.pricing-title { font-family: 'Cormorant Garamond', serif; font-size: 13px; font-weight: 600; color: #202a3e; margin: 0 0 6px; display: flex; align-items: center; gap: 10px }
 .currency-tag { font-family: 'Montserrat', sans-serif; font-size: 9px; font-weight: 700; color: #b38559; letter-spacing: 0.08em; background: #fdf6ee; padding: 2px 7px; border: 1px solid #e8d5b5 }
+.payoff-badge { display: inline-block; background: #202a3e; color: #fff; font-family: 'Montserrat', sans-serif; font-size: 10px; font-weight: 700; border-radius: 3px; padding: 2px 8px; margin-bottom: 6px }
+.payoff-desc { font-size: 10px; color: #555; font-style: italic; padding: 5px 10px; border-left: 2px solid #b38559; line-height: 1.5; margin-bottom: 8px }
+.pricing-grid-wrap { display: grid; gap: 12px }
+.pricing-grid-wrap.count-4 { grid-template-columns: 1fr 1fr }
+.pricing-grid-wrap.count-3 { grid-template-columns: 1fr 1fr }
+.pricing-grid-wrap.count-3 .pricing-block:last-child { grid-column: 1/-1 }
 .pg-table { width: 100%; border-collapse: collapse; margin-bottom: 4px }
 .pg-table thead tr { background: #202a3e; border-bottom: 2px solid #b38559 }
-.pg-table th { color: #fff; padding: 8px 14px; text-align: center; font-size: 10px; font-weight: 600; letter-spacing: 0.05em; font-family: 'Montserrat', sans-serif; border: 1px solid #2e3c56 }
+.pg-table th { color: #fff; padding: 6px 10px; text-align: center; font-size: 10px; font-weight: 600; letter-spacing: 0.05em; font-family: 'Montserrat', sans-serif; border: 1px solid #2e3c56 }
 .pg-table th.label-head { text-align: left }
-.pg-table td { padding: 8px 14px; text-align: center; font-family: 'Courier New', monospace; font-size: 11px; color: #202a3e; border: 1px solid #e8e8e8; background: #fff }
+.pg-table td { padding: 6px 10px; text-align: center; font-family: 'Courier New', monospace; font-size: 10px; color: #202a3e; border: 1px solid #e8e8e8; background: #fff }
 .pg-table tr:nth-child(even) td { background: #f3f4f5 }
 .pg-table td.row-label { text-align: left; color: #555; font-family: 'Montserrat', sans-serif; font-weight: 500; font-size: 10px }
 .cap-note { font-size: 8px; color: #aaa; display: block; margin-top: 1px }
@@ -191,6 +197,13 @@ export function buildHTMLExport(state) {
     return `<table class="pg-table"><thead><tr><th class="label-head">${label}</th>${headerCells}</tr></thead><tbody>${bodyRows}</tbody></table>`
   }
 
+  const payoffInfo = {
+    rc:       { badge: 'Autocall RC',           desc: 'Guaranteed coupon paid quarterly. Autocall at 100% quarterly from month 6. Capital at risk below the strike.' },
+    snowball: { badge: 'Snowball',               desc: 'Memory coupon accumulates if not paid. Autocall at 100% from month 6. Barrier observed at maturity, Strike 100%.' },
+    bonus:    { badge: 'Bonus Capped',           desc: '100% capital protection if underlying never touches barrier. Bonus return up to cap level. Full downside if barrier is breached.' },
+    cpn:      { badge: 'Capital Protected Note', desc: 'Capital protection at maturity. Upside participation on the worst of.' },
+  }
+
   const gridDefs = {
     rc:       { label: 'Strike',         rows: RC_STRIKES,       title: 'Autocall Reverse Convertible' },
     snowball: { label: 'Barrier/Coupon', rows: SNOWBALL_BARRIERS, title: 'Snowball' },
@@ -198,12 +211,16 @@ export function buildHTMLExport(state) {
     cpn:      { label: 'Protection',      rows: CPN_PROTECTIONS,  title: 'Capital Protected Note' },
   }
 
-  const pricingHTML = ['rc', 'snowball', 'bonus', 'cpn']
-    .filter(k => state.showGrids[k])
-    .map(k => {
+  const activeKeys = ['rc', 'snowball', 'bonus', 'cpn'].filter(k => state.showGrids[k])
+  const activeCount = activeKeys.length
+  const gridWrapClass = 'pricing-grid-wrap count-' + activeCount
+  const pricingHTML = activeKeys.map(k => {
       const def = gridDefs[k]
+      const po = payoffInfo[k]
       return `
     <div class="pricing-block">
+      <span class="payoff-badge">${po.badge}</span>
+      <div class="payoff-desc">${po.desc}</div>
       <div class="pricing-title">${def.title} <span class="currency-tag">${state.pricingCurrency}</span></div>
       ${gridHTML(def.label, def.rows, TENORS, state.pricingGrids[k], def.caps)}
     </div>`
@@ -255,7 +272,7 @@ export function buildHTMLExport(state) {
   ${headerSm}
   <div class="pricing-wrap">
     <h2>Indicative Pricing</h2>
-    ${pricingHTML}
+    <div class="${gridWrapClass}">${pricingHTML}</div>
   </div>
   <div class="doc-footer">
     <div class="disclaimer">${state.disclaimer || ''}</div>
