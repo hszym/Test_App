@@ -17,13 +17,12 @@ export async function POST(request) {
   }
 
   try {
-    const client = new Anthropic({ apiKey })
-    const resp = await client.responses.create({
+    const resp = await client.messages.create({
       model: 'claude-3-haiku-20240307',
-      input: prompt,
-      max_tokens: 1000
+      max_tokens: 1000,
+      messages: [{ role: 'user', content: prompt }]
     })
-    const text = resp.output?.[0]?.content?.[0]?.text || ''
+    const text = resp.content?.[0]?.text || ''
     return NextResponse.json({ text })
   } catch (error) {
     console.error('Anthropic API request failed:', error)
