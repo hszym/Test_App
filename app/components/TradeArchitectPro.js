@@ -429,6 +429,8 @@ export default function TradeArchitectPro() {
   const [sgLoading, setSgLoading] = useState({})
   const [sgLivePrices, setSgLivePrices] = useState({})
   const [rec, setRec] = useState({ open: false, loading: false, data: null })
+  const [sgPasteUrl, setSgPasteUrl] = useState('')
+  const [sgAwaitingPaste, setSgAwaitingPaste] = useState(false)
 
   useEffect(() => {
     try {
@@ -691,9 +693,6 @@ Respond ONLY in this exact JSON format:
               const connected = state.sgToken && state.sgTokenExpiry && Date.now() < state.sgTokenExpiry
               const expired = state.sgToken && state.sgTokenExpiry && Date.now() >= state.sgTokenExpiry
               const minsLeft = connected ? Math.max(0, Math.round((state.sgTokenExpiry - Date.now()) / 60000)) : 0
-              const [sgPasteUrl, setSgPasteUrl] = React.useState('')
-              const [sgAwaitingPaste, setSgAwaitingPaste] = React.useState(false)
-
               const openSGLogin = () => {
                 window.open(
                   'https://sso.sgmarkets.com/sgconnect/oauth2/authorize?' + new URLSearchParams({
