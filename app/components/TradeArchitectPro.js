@@ -56,6 +56,8 @@ const DEFAULT_STATE = {
   pricingCurrency: 'USD',
   aiLoading: {},
   aiMode: {},
+  sgToken: null,
+  sgTokenExpiry: null,
   logoUrl: '',
 }
 
@@ -69,6 +71,53 @@ async function callClaude(prompt, noWebSearch = false) {
   const data = await res.json()
   if (data.error) throw new Error(data.error)
   return data.text || ''
+}
+
+// ─── DIRECT SG MARKETS CLIENT (implicit-flow token from browser) ─────────────
+const SG_PRODUCT_CONFIG = {
+  rc:       { productType: 'ReverseConvertible', productSubtype: 'BarrierReverseConvertible', solvingMode: 'RecallCoupon', wrapper: 'Note' },
+  snowball: { productType: 'Autocall',            productSubtype: 'Phoenix',                  solvingMode: 'RecallCoupon', wrapper: 'Note' },
+  bonus:    { productType: 'Participation',       productSubtype: 'BonusCertificate',         solvingMode: 'Bonus',        wrapper: 'Note' },
+  cpn:      { productType: 'Participation',       productSubtype: 'CUOSingle',                solvingMode: 'CapLevel',     wrapper: 'Note' },
+}
+
+async function callSGPriceDirect(productKey, { underlyings, maturityMonths, barrier, currency }, token) {
+  const config = SG_PRODUCT_CONFIG[productKey]
+  if (!config) throw new Error(`Unknown product type: ${productKey}`)
+  const quotePayload = {
+    variationParameters: {
+      ...config,
+      underlying: underlyings.map(sym => ({ id: `${sym} UW`, idType: 'Bloomberg' })),
+      maturityValue: { currentValue: { value: maturityMonths, unit: 'Month' } },
+      currency, notionalAmount: 1000000, strike: 100, kiBarrier: barrier,
+      recallThreshold: 100, couponFrequency: 'FourPerYear', recallStartPeriod: 1,
+    },
+  }
+  const quoteRes = await fetch('https://sp-api.sgmarkets.com/api/v1/quotes', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(quotePayload),
+  })
+  const quoteText = await quoteRes.text()
+  if (!quoteRes.ok) throw new Error(`SG quote failed (${quoteRes.status}): ${quoteText}`)
+  const { QuoteId } = JSON.parse(quoteText)
+  if (!QuoteId) throw new Error('SG did not return a QuoteId')
+  for (let attempt = 0; attempt < 10; attempt++) {
+    await new Promise(r => setTimeout(r, 2000))
+    const pollRes = await fetch(`https://sp-api.sgmarkets.com/api/v1/quote/${QuoteId}`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    })
+    if (!pollRes.ok) continue
+    const quote = await pollRes.json()
+    if (quote.Status === 'Quoted') {
+      const value = quote.SolvedValue ?? quote.RecallCoupon ?? quote.Bonus ?? quote.CapLevel ?? quote.Value ?? null
+      if (value === null) throw new Error('SG returned Quoted status but no solved value field')
+      return value
+    }
+    if (['Error', 'Failed', 'Rejected'].includes(quote.Status))
+      throw new Error(`SG quote ${quote.Status}: ${quote.ErrorMessage || 'no details'}`)
+  }
+  throw new Error('SG quote timed out after 20 seconds')
 }
 
 function pos52w(price, low, high) {
@@ -273,6 +322,16 @@ body{background:#f3f4f5;color:#202a3e;font-family:${FONT}}
 .rec-why-reason{font-size:11px;color:#6b7280;line-height:1.6}
 .rec-loading{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:64px 20px;color:#6b7a99;font-size:13px;gap:16px}
 .rec-loading-icon{font-size:32px;animation:spin .8s linear infinite;display:inline-block}
+.sg-bar{display:flex;align-items:center;gap:12px;background:#ffffff;border:1px solid #e2e8f0;border-radius:10px;padding:14px 20px;margin-bottom:24px;flex-wrap:wrap}
+.sg-brand{font-size:13px;font-weight:800;color:#e2000b;letter-spacing:.02em;white-space:nowrap}
+.sg-badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;letter-spacing:.03em;white-space:nowrap}
+.sg-badge-ok{background:#f0fdf4;color:#059669;border:1px solid #86efac}
+.sg-badge-no{background:#fff7ed;color:#c2410c;border:1px solid #fed7aa}
+.sg-expiry{font-size:11px;color:#6b7280;flex:1;min-width:0}
+.sg-connect-btn{background:#ea580c;color:#fff;border:none;border-radius:6px;padding:7px 14px;font-size:11px;font-weight:600;cursor:pointer;font-family:'Montserrat',sans-serif;letter-spacing:.03em;white-space:nowrap;transition:background .15s}
+.sg-connect-btn:hover{background:#c2410c}
+.sg-disconnect-btn{background:#ffffff;color:#6b7280;border:1px solid #e2e8f0;border-radius:6px;padding:7px 14px;font-size:11px;font-weight:500;cursor:pointer;font-family:'Montserrat',sans-serif;white-space:nowrap;transition:background .15s}
+.sg-disconnect-btn:hover{background:#f3f4f5}
 `
 
 function Spinner() { return <span className="spin">⟳</span> }
@@ -382,6 +441,21 @@ export default function TradeArchitectPro() {
       try { localStorage.setItem('tap_state_v3', JSON.stringify(state)) } catch {}
     }
   }, [state])
+
+  // SG Markets OAuth2 implicit-flow: extract token from URL hash after redirect
+  useEffect(() => {
+    const hash = window.location.hash
+    if (hash.includes('access_token')) {
+      const params = new URLSearchParams(hash.substring(1))
+      const token = params.get('access_token')
+      const expiresIn = params.get('expires_in')
+      if (token) {
+        const expiry = Date.now() + parseInt(expiresIn || '3600') * 1000
+        setState(prev => ({ ...prev, sgToken: token, sgTokenExpiry: expiry }))
+        window.history.replaceState({}, '', window.location.pathname)
+      }
+    }
+  }, [])
 
   const set = useCallback((updater) => setState(prev => {
     const next = typeof updater === 'function' ? updater(prev) : updater
@@ -625,6 +699,36 @@ Respond ONLY in this exact JSON format:
       <div className="tap-main">
         {state.step === 1 && (
           <div>
+            {(() => {
+              const connected = state.sgToken && state.sgTokenExpiry && Date.now() < state.sgTokenExpiry
+              const connectSG = () => {
+                const params = new URLSearchParams({
+                  response_type: 'token',
+                  client_id: '9da710fa-a553-476e-88eb-36383c8da680',
+                  redirect_uri: window.location.origin + window.location.pathname,
+                  scope: 'api.sgmarkets-execution-structured-products.v1',
+                })
+                window.location.href = `https://sso.sgmarkets.com/sgconnect/oauth2/authorize?${params}`
+              }
+              return (
+                <div className="sg-bar">
+                  <span className="sg-brand">SG Markets</span>
+                  {connected ? (
+                    <>
+                      <span className="sg-badge sg-badge-ok">● Connected</span>
+                      <span className="sg-expiry">Token expires {new Date(state.sgTokenExpiry).toLocaleTimeString()}</span>
+                      <button className="sg-disconnect-btn" onClick={() => set({ sgToken: null, sgTokenExpiry: null })}>Disconnect</button>
+                    </>
+                  ) : (
+                    <>
+                      <span className="sg-badge sg-badge-no">● Not connected</span>
+                      <span className="sg-expiry">Connect to fetch live prices in Step 3</span>
+                      <button className="sg-connect-btn" onClick={connectSG}>Connect to SG Markets</button>
+                    </>
+                  )}
+                </div>
+              )
+            })()}
             <div className="tap-section-title">Client & Bank Configuration</div>
             <div className="tap-card">
               <div className="tap-form-grid">
