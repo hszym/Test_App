@@ -29,16 +29,16 @@ function asciiTable(title, rowLabels, colLabels, grid) {
 }
 
 const EXPORT_CSS = `
-@page { size: A4; margin: 15mm }
+@page { size: A4; margin: 10mm 12mm 10mm 12mm }
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0 }
 body { font-family: 'Montserrat', sans-serif; color: #333; background: #fff; font-size: 11px; line-height: 1.8; -webkit-print-color-adjust: exact; print-color-adjust: exact }
 
-.page { max-width: 794px; margin: 0 auto; page-break-after: always }
+.page { max-width: 794px; margin: 0 auto; page-break-after: always; padding: 0 }
 .page-last { page-break-after: avoid }
 
-.doc-header { background: #202a3e; padding: 18px 40px; display: flex; align-items: center; justify-content: space-between; position: relative }
+.doc-header { background: #202a3e; padding: 14px 32px; display: flex; align-items: center; justify-content: space-between; position: relative }
 .doc-header::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 3px; background: #b38559 }
-.doc-header-sm { padding: 10px 40px }
+.doc-header-sm { padding: 8px 32px }
 .header-logo-img { height: 36px; object-fit: contain }
 .header-logo-text { font-family: 'Cormorant Garamond', serif; font-size: 22px; color: #fff; font-weight: 600; letter-spacing: 0.02em }
 .doc-header-sm .header-logo-text { font-size: 15px }
@@ -46,11 +46,11 @@ body { font-family: 'Montserrat', sans-serif; color: #333; background: #fff; fon
 .header-type { font-size: 10px; font-weight: 600; color: #b38559; letter-spacing: 0.18em; text-transform: uppercase }
 .header-date { font-size: 10px; color: rgba(255,255,255,0.65); margin-top: 3px }
 
-.content { padding: 32px 40px 0 }
+.content { padding: 20px 32px 0 }
 h2 { font-family: 'Cormorant Garamond', serif; font-size: 19px; font-weight: 600; color: #202a3e; margin: 0 0 14px; padding-left: 14px; border-left: 3px solid #b38559; line-height: 1.2 }
 .section { margin-bottom: 28px }
 
-.thesis-block { font-size: 11px; color: #444; line-height: 1.85; padding: 16px 20px; background: #f9f9f9; border: 1px solid #ebebeb }
+.thesis-block { font-size: 11px; color: #444; line-height: 1.85; padding: 16px 20px; background: #f9f9f9; border: 1px solid #ebebeb; text-align: justify }
 
 .tickers { padding-top: 4px }
 .ticker-row { display: flex; gap: 28px; align-items: flex-start; padding: 18px 0; border-bottom: 1px solid #f0e8dc }
@@ -64,8 +64,8 @@ h2 { font-family: 'Cormorant Garamond', serif; font-size: 19px; font-weight: 600
 .pos { color: #059669 }
 .neg { color: #dc2626 }
 .ticker-iv { font-size: 10px; color: #888; margin-top: 4px }
-.bar-wrap { position: relative; height: 4px; background: linear-gradient(90deg, #dc2626 0%, #f59e0b 50%, #059669 100%); border-radius: 2px; margin: 10px 0 4px }
-.bar-dot { position: absolute; top: -3px; width: 10px; height: 10px; background: #202a3e; border: 2px solid #fff; border-radius: 50%; transform: translateX(-50%); box-shadow: 0 1px 3px rgba(0,0,0,0.25) }
+.bar-wrap { position: relative; height: 4px; background: linear-gradient(90deg, #dc2626 0%, #f59e0b 50%, #059669 100%); border-radius: 2px; margin: 10px 0 6px; overflow: visible }
+.bar-dot { position: absolute; top: 50%; transform: translate(-50%, -50%); width: 10px; height: 10px; background: #202a3e; border: 2px solid #fff; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,0.35); z-index: 2 }
 .bar-labels { display: flex; justify-content: space-between; font-size: 9px; color: #bbb; font-family: 'Courier New', monospace }
 
 .note-block { margin-top: 7px; padding: 7px 10px; font-size: 10px; line-height: 1.65 }
@@ -86,7 +86,7 @@ h2 { font-family: 'Cormorant Garamond', serif; font-size: 19px; font-weight: 600
 .param-key { color: #777; flex: 1; padding-right: 8px }
 .param-val { color: #202a3e; font-family: 'Courier New', monospace; font-weight: 600; white-space: nowrap }
 
-.pricing-wrap { padding: 22px 40px 0 }
+.pricing-wrap { padding: 16px 32px 0 }
 .pricing-block { margin-bottom: 12px; page-break-inside: avoid }
 .pricing-title { font-family: 'Cormorant Garamond', serif; font-size: 13px; font-weight: 600; color: #202a3e; margin: 0 0 6px; display: flex; align-items: center; gap: 10px }
 .currency-tag { font-family: 'Montserrat', sans-serif; font-size: 9px; font-weight: 700; color: #b38559; letter-spacing: 0.08em; background: #fdf6ee; padding: 2px 7px; border: 1px solid #e8d5b5 }
@@ -105,7 +105,7 @@ h2 { font-family: 'Cormorant Garamond', serif; font-size: 19px; font-weight: 600
 .pg-table td.row-label { text-align: left; color: #555; font-family: 'Montserrat', sans-serif; font-weight: 500; font-size: 10px }
 .cap-note { font-size: 8px; color: #aaa; display: block; margin-top: 1px }
 
-.doc-footer { margin: 20px 40px 32px; padding-top: 12px; border-top: 1px solid #b38559 }
+.doc-footer { margin: 12px 32px 20px; padding-top: 12px; border-top: 1px solid #b38559 }
 .disclaimer { font-size: 9px; color: #aaa; line-height: 1.7; font-style: italic }
 .footer-brand { font-size: 9px; color: #ccc; text-align: right; margin-top: 6px; font-weight: 500; letter-spacing: 0.04em }
 
@@ -116,7 +116,7 @@ h2 { font-family: 'Cormorant Garamond', serif; font-size: 19px; font-weight: 600
 .ai-rec-conf-high { background: #202a3e; color: #fff; font-size: 9px; font-weight: 700; padding: 4px 12px; letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap; border-radius: 2px; margin-top: 6px }
 .ai-rec-conf-med { background: #6b7a99; color: #fff; font-size: 9px; font-weight: 700; padding: 4px 12px; letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap; border-radius: 2px; margin-top: 6px }
 .ai-rec-divider { height: 1px; background: #e2e8f0; margin: 14px 0 }
-.ai-rec-justification-block { font-size: 11px; color: #444; line-height: 1.85; border-left: 3px solid #b38559; padding-left: 16px; margin: 14px 0; font-family: 'Montserrat', sans-serif }
+.ai-rec-justification-block { font-size: 11px; color: #444; line-height: 1.85; border-left: 3px solid #b38559; padding-left: 16px; margin: 14px 0; font-family: 'Montserrat', sans-serif; text-align: justify }
 .ai-rec-structure { background: #f8f6f2; border: 1px solid #e8ddd0; padding: 16px 20px; margin: 16px 0; border-radius: 6px }
 .ai-rec-structure-title { font-family: 'Cormorant Garamond', serif; font-size: 16px; font-weight: 700; color: #202a3e; margin-bottom: 2px }
 .ai-rec-structure-sublabel { font-size: 9px; color: #b38559; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 12px }
@@ -170,7 +170,7 @@ export function buildHTMLExport(state, recommendation) {
 
   const tickerRowsHTML = activeTickers.map(t => {
     const p = t.data
-    const pct = pos52w(p?.price, p?.low52, p?.high52)
+    const pct = Math.min(98, Math.max(2, pos52w(p?.price, p?.low52, p?.high52)))
     const chgClass = (p?.change ?? 0) >= 0 ? 'pos' : 'neg'
     const chgArrow = (p?.change ?? 0) >= 0 ? '\u25b2' : '\u25bc'
     return (
@@ -372,15 +372,9 @@ export function buildHTMLExport(state, recommendation) {
   </div>
 </div>
 
-<!-- PAGE 3: Product Parameters + Indicative Pricing + Footer -->
+<!-- PAGE 3: Indicative Pricing + Footer -->
 <div class="page page-last">
   ${headerSm}
-  <div class="content">
-    <div class="section">
-      <h2>Product Parameters</h2>
-      ${paramCardsHTML}
-    </div>
-  </div>
   <div class="pricing-wrap">
     <h2>Indicative Pricing</h2>
     <div class="${gridWrapClass}">${pricingHTML}</div>
