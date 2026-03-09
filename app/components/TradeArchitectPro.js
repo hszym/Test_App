@@ -85,10 +85,21 @@ function fmt(n, dec = 2) {
 }
 
 async function fetchMarketData(symbol) {
-  await new Promise(r => setTimeout(r, 600 + Math.random() * 400))
-  const key = symbol.toUpperCase()
-  if (MOCK_DATA[key]) return { ...MOCK_DATA[key] }
-  return { price: 100 + Math.random() * 200, change: (Math.random() - 0.5) * 4, low52: 80 + Math.random() * 40, high52: 160 + Math.random() * 80, iv: 20 + Math.random() * 30 }
+  try {
+    const res = await fetch('/api/market-data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ symbol }),
+    })
+    const data = await res.json()
+    if (data.error) throw new Error(data.message)
+    return data
+  } catch (e) {
+    console.warn('Live market data failed for', symbol, '— using mock fallback:', e.message)
+    const key = symbol.toUpperCase()
+    if (MOCK_DATA[key]) return { ...MOCK_DATA[key] }
+    return { price: 100 + Math.random() * 200, change: (Math.random() - 0.5) * 4, low52: 80 + Math.random() * 40, high52: 160 + Math.random() * 80, iv: 20 + Math.random() * 30 }
+  }
 }
 
 function downloadHTML(htmlContent, clientName) {
@@ -863,7 +874,32 @@ Respond ONLY in this exact JSON format:
                           </div>
                           <div className="tap-52w-labels"><span>{fmt(p.low52)} L</span><span>52W Range</span><span>H {fmt(p.high52)}</span></div>
                         </div>
-                        <div style={{ fontSize: 11, color: '#4a5578' }}>IV <span style={{ color: '#a0aec0', fontFamily: MONO }}>{fmt(p.iv)}%</span></div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                          <div style={{ fontSize: 11, color: '#4a5578' }}>IV <span style={{ color: '#a0aec0', fontFamily: MONO }}>{p.iv != null ? fmt(p.iv) + '%' : '—'}</span></div>
+                          {p.live && <span style={{ fontSize: 10, color: '#4ade80', fontWeight: 600, letterSpacing: '0.05em' }}>● Live</span>}
+                        </div>
+                        {p.analystRating && (() => {
+                          const total = (p.analystBuy || 0) + (p.analystHold || 0) + (p.analystSell || 0)
+                          const buyPct = total ? Math.round((p.analystBuy / total) * 100) : 0
+                          const holdPct = total ? Math.round((p.analystHold / total) * 100) : 0
+                          const sellPct = total ? 100 - buyPct - holdPct : 0
+                          const badgeColor = p.analystRating === 'Buy' ? '#4ade80' : p.analystRating === 'Sell' ? '#f87171' : '#a0aec0'
+                          return (
+                            <div style={{ marginTop: 8 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
+                                <span style={{ fontSize: 10, fontWeight: 700, color: badgeColor, border: `1px solid ${badgeColor}`, borderRadius: 3, padding: '1px 6px', letterSpacing: '0.06em' }}>{p.analystRating.toUpperCase()}</span>
+                                {p.analystTarget && <span style={{ fontSize: 11, color: '#4a5578' }}>Target <span style={{ color: '#a0aec0', fontFamily: MONO }}>${fmt(p.analystTarget)}</span></span>}
+                              </div>
+                              {total > 0 && (
+                                <div style={{ display: 'flex', borderRadius: 3, overflow: 'hidden', height: 5 }}>
+                                  <div style={{ width: `${buyPct}%`, background: '#4ade80' }} title={`Buy: ${p.analystBuy}`} />
+                                  <div style={{ width: `${holdPct}%`, background: '#4a5578' }} title={`Hold: ${p.analystHold}`} />
+                                  <div style={{ width: `${sellPct}%`, background: '#f87171' }} title={`Sell: ${p.analystSell}`} />
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })()}
                         <div className="tap-divider" />
                         {[{ key: 'bullCase', label: '🟢 Bull Case', field: `bull_${i}` }, { key: 'bearCase', label: '🔴 Bear Case', field: `bear_${i}` }, { key: 'entryNote', label: '📍 Entry Note', field: `entry_${i}` }].map(({ key, label, field }) => (
                           <div key={key} style={{ marginBottom: 10 }}>
