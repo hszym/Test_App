@@ -64,8 +64,8 @@ h2 { font-family: 'Cormorant Garamond', serif; font-size: 19px; font-weight: 600
 .pos { color: #059669 }
 .neg { color: #dc2626 }
 .ticker-iv { font-size: 10px; color: #888; margin-top: 4px }
-.bar-wrap { position: relative; height: 4px; background: linear-gradient(90deg, #dc2626 0%, #f59e0b 50%, #059669 100%); border-radius: 2px; margin: 10px 0 6px; overflow: visible }
-.bar-dot { position: absolute; top: 50%; transform: translate(-50%, -50%); width: 10px; height: 10px; background: #202a3e; border: 2px solid #fff; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,0.35); z-index: 2 }
+.bar-wrap { position: relative; height: 6px; background: linear-gradient(90deg, #dc2626 0%, #f59e0b 50%, #059669 100%); border-radius: 3px; margin: 10px 0 6px; overflow: visible }
+.bar-dot { position: absolute; top: 50%; transform: translate(-50%, -50%); width: 12px; height: 12px; background: #ffffff; border: 2px solid #b38559; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,0.3); z-index: 2 }
 .bar-labels { display: flex; justify-content: space-between; font-size: 9px; color: #bbb; font-family: 'Courier New', monospace }
 
 .note-block { margin-top: 7px; padding: 7px 10px; font-size: 10px; line-height: 1.65 }
@@ -180,9 +180,19 @@ export function buildHTMLExport(state, recommendation) {
             '<span class="ticker-symbol">' + t.symbol + '</span>' +
             (t.currency ? '<span class="ticker-cur">' + t.currency + '</span>' : '') +
           '</div>' +
+          (p?.name ? '<div style="font-size:10px;color:#6b7a99;font-style:italic;margin-top:2px;line-height:1.3">' + p.name + '</div>' : '') +
           '<div class="ticker-price">' + fmt(p?.price) + '</div>' +
           '<div class="ticker-chg ' + chgClass + '">' + chgArrow + ' ' + fmt(Math.abs(p?.change ?? 0)) + '%</div>' +
           '<div class="ticker-iv">IV: ' + fmt(p?.iv) + '%</div>' +
+          (p?.analystTarget ? (() => {
+            const upside = p.price ? ((p.analystTarget / p.price - 1) * 100) : null
+            const upsideStr = upside != null ? (upside >= 0 ? '+' : '') + upside.toFixed(1) + '%' : ''
+            const upsideColor = upside != null && upside >= 0 ? '#059669' : '#dc2626'
+            return '<div style="margin-top:5px;display:flex;align-items:center;gap:6px">' +
+              '<span style="font-size:9px;font-weight:700;color:#fff;background:#202a3e;padding:2px 7px;border-radius:2px;letter-spacing:0.04em">Target $' + fmt(p.analystTarget) + '</span>' +
+              (upsideStr ? '<span style="font-size:9px;font-weight:700;color:' + upsideColor + '">' + upsideStr + '</span>' : '') +
+            '</div>'
+          })() : '') +
           '<div class="bar-wrap"><div class="bar-dot" style="left:' + pct + '%"></div></div>' +
           '<div class="bar-labels"><span>' + fmt(p?.low52) + '</span><span>52W Range</span><span>' + fmt(p?.high52) + '</span></div>' +
         '</div>' +

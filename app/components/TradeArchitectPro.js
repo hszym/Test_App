@@ -190,9 +190,7 @@ body{background:#f3f4f5;color:#202a3e;font-family:${FONT}}
 .tap-stock-change.pos{color:#34d399}
 .tap-stock-change.neg{color:#f87171}
 .tap-52w{display:flex;flex-direction:column;gap:4px}
-.tap-52w-bar-wrap{position:relative;height:4px;background:#e2e8f0;border-radius:2px}
-.tap-52w-bar-fill{position:absolute;top:0;left:0;height:100%;background:linear-gradient(90deg,#f87171,#facc15,#34d399);border-radius:2px}
-.tap-52w-marker{position:absolute;top:-4px;width:12px;height:12px;background:#ffffff;border:2px solid #b38559;border-radius:50%;transform:translateX(-50%)}
+.tap-52w-bar-wrap{position:relative;height:6px;background:linear-gradient(90deg,#f87171,#facc15,#34d399);border-radius:3px;overflow:visible}
 .tap-52w-labels{display:flex;justify-content:space-between;font-size:10px;color:#6b7280;font-family:${MONO};margin-top:2px}
 .tap-wb-block{background:#ffffff;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden}
 .tap-wb-block-header{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;border-bottom:1px solid #e2e8f0;background:#f3f4f5}
@@ -793,11 +791,11 @@ Respond ONLY in this exact JSON format:
                   {state.tickers.map((t, i) => {
                     if (!t.symbol || !t.data) return null
                     const p = t.data
-                    const pct = pos52w(p.price, p.low52, p.high52)
+                    const pct = Math.min(98, Math.max(2, pos52w(p.price, p.low52, p.high52)))
                     return (
                       <div key={i} className="tap-stock-card">
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                          <div><div className="tap-stock-symbol">{t.symbol}</div><div style={{ fontSize: 11, color: '#4a5578', marginTop: 2 }}>{t.currency}</div></div>
+                          <div><div className="tap-stock-symbol">{t.symbol}</div><div style={{ fontSize: 10, color: '#6b7a99', marginTop: 2, fontStyle: 'italic' }}>{t.data?.name || ''}</div></div>
                           <div style={{ textAlign: 'right' }}>
                             <div className="tap-stock-price">{fmt(p.price)}</div>
                             <div className={`tap-stock-change ${p.change >= 0 ? 'pos' : 'neg'}`}>{p.change >= 0 ? '▲' : '▼'} {fmt(Math.abs(p.change))}%</div>
@@ -805,8 +803,7 @@ Respond ONLY in this exact JSON format:
                         </div>
                         <div className="tap-52w">
                           <div className="tap-52w-bar-wrap">
-                            <div className="tap-52w-bar-fill" style={{ width: `${pct}%` }} />
-                            <div className="tap-52w-marker" style={{ left: `${pct}%` }} />
+                            <div style={{ position: 'absolute', top: '50%', left: `${pct}%`, transform: 'translate(-50%, -50%)', width: 12, height: 12, background: '#ffffff', border: '2px solid #b38559', borderRadius: '50%', zIndex: 1 }} />
                           </div>
                           <div className="tap-52w-labels"><span>{fmt(p.low52)} L</span><span>52W Range</span><span>H {fmt(p.high52)}</span></div>
                         </div>
@@ -814,6 +811,15 @@ Respond ONLY in this exact JSON format:
                           <div style={{ fontSize: 11, color: '#4a5578' }}>IV <span style={{ color: '#a0aec0', fontFamily: MONO }}>{p.iv != null ? fmt(p.iv) + '%' : '—'}</span></div>
                           {p.live && <span style={{ fontSize: 10, color: '#4ade80', fontWeight: 600, letterSpacing: '0.05em' }}>● Live</span>}
                         </div>
+                        {p.analystTarget && (() => {
+                          const upside = p.price ? ((p.analystTarget / p.price - 1) * 100) : null
+                          return (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                              <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', background: '#202a3e', padding: '2px 8px', borderRadius: 3, fontFamily: MONO }}>Target ${fmt(p.analystTarget)}</span>
+                              {upside != null && <span style={{ fontSize: 10, fontWeight: 700, color: upside >= 0 ? '#4ade80' : '#f87171' }}>{upside >= 0 ? '+' : ''}{upside.toFixed(1)}%</span>}
+                            </div>
+                          )
+                        })()}
                         {p.analystRating && (() => {
                           const total = (p.analystBuy || 0) + (p.analystHold || 0) + (p.analystSell || 0)
                           const buyPct = total ? Math.round((p.analystBuy / total) * 100) : 0
@@ -824,7 +830,6 @@ Respond ONLY in this exact JSON format:
                             <div style={{ marginTop: 8 }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
                                 <span style={{ fontSize: 10, fontWeight: 700, color: badgeColor, border: `1px solid ${badgeColor}`, borderRadius: 3, padding: '1px 6px', letterSpacing: '0.06em' }}>{p.analystRating.toUpperCase()}</span>
-                                {p.analystTarget && <span style={{ fontSize: 11, color: '#4a5578' }}>Target <span style={{ color: '#a0aec0', fontFamily: MONO }}>${fmt(p.analystTarget)}</span></span>}
                               </div>
                               {total > 0 && (
                                 <div style={{ display: 'flex', borderRadius: 3, overflow: 'hidden', height: 5 }}>

@@ -40,6 +40,7 @@ export async function POST(request) {
       analystBuy: bullish,
       analystHold: hold,
       analystSell: bearish,
+      name: quote.longName || quote.shortName || symbol,
       iv: null,
       live: true,
     })
