@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 
 const SG_BASE = 'https://sp-api.sgmarkets.com'
-const SG_TOKEN_URL = 'https://sso.sgmarkets.com/sgconnect/oauth2/access_token'
 
 const PRODUCT_CONFIG = {
   rc:       { productType: 'ReverseConvertible', productSubtype: 'BarrierReverseConvertible', solvingMode: 'RecallCoupon', wrapper: 'Note' },
@@ -51,38 +50,52 @@ export async function POST(request) {
   try {
     const token = await getSGToken()
 
-    // Map ticker symbols to Bloomberg format.
-    // US equities: "AAPL US Equity". Adjust idType/id for non-US if needed.
-    const underlyingPayload = underlyings.map(sym => ({
-      id:     `${sym} US Equity`,
-      idType: 'Bloomberg',
-    }))
-
+    // Use the bare-minimum payload format from SG docs
     const quotePayload = {
-      ...config,
-      currency,
-      maturity:    { months: maturityMonths },
-      underlyings: underlyingPayload,
-      barrier,
+      variationParameters: {
+        ...config,
+        underlying: underlyings.map(sym => ({ id: `${sym} UW`, idType: 'Bloomberg' })),
+        maturityValue: {
+          currentValue: { value: maturityMonths, unit: 'Month' },
+        },
+        currency,
+        notionalAmount: 1000000,
+        strike: 100,
+        kiBarrier: barrier,
+        recallThreshold: 100,
+        couponFrequency: 'FourPerYear',
+        recallStartPeriod: 1,
+      },
     }
 
-    console.log('SG quote request:', JSON.stringify(quotePayload))
+    const quoteUrl = `${SG_BASE}/api/v1/quotes`
+    const quoteHeaders = {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    }
 
-    const quoteRes = await fetch(`${SG_BASE}/api/v1/quotes`, {
-      method:  'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type':  'application/json',
-      },
+    console.log('SG request URL:', quoteUrl)
+    console.log('SG request headers:', JSON.stringify(quoteHeaders))
+    console.log('SG request body:', JSON.stringify(quotePayload))
+
+    const quoteRes = await fetch(quoteUrl, {
+      method: 'POST',
+      headers: quoteHeaders,
       body: JSON.stringify(quotePayload),
     })
 
+    const quoteResText = await quoteRes.text()
+    console.log('SG quote response status:', quoteRes.status)
+    console.log('SG quote response body:', quoteResText)
+
     if (!quoteRes.ok) {
-      const errBody = await quoteRes.text()
-      throw new Error(`SG quote request failed (${quoteRes.status}): ${errBody}`)
+      throw new Error(`SG quote request failed (${quoteRes.status}): ${quoteResText}`)
     }
 
-    const { QuoteId } = await quoteRes.json()
+    let quoteResData
+    try { quoteResData = JSON.parse(quoteResText) } catch { throw new Error(`SG quote non-JSON response: ${quoteResText}`) }
+
+    const QuoteId = quoteResData.QuoteId
     if (!QuoteId) throw new Error('SG response did not return a QuoteId')
 
     console.log('SG QuoteId:', QuoteId)
@@ -104,7 +117,6 @@ export async function POST(request) {
       console.log(`SG poll attempt ${attempt + 1}:`, quote.Status)
 
       if (quote.Status === 'Quoted') {
-        // Extract solved value — field name varies by solvingMode
         const value =
           quote.SolvedValue  ??
           quote.RecallCoupon ??
