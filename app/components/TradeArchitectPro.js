@@ -1110,63 +1110,69 @@ Respond ONLY in this exact JSON format:
 
       {rec.open && (
         <div className="tap-modal-overlay" onClick={e => e.target === e.currentTarget && !rec.loading && setRec(prev => ({ ...prev, open: false }))}>
-          <div className="tap-modal" style={{ maxWidth: 800 }}>
-            <div className="tap-modal-header">
-              <div className="tap-modal-title">🎯 AI Product Recommendation</div>
-              {!rec.loading && <button className="tap-btn tap-btn-secondary tap-btn-sm" onClick={() => setRec(prev => ({ ...prev, open: false }))}>✕ Close</button>}
-            </div>
-            <div className="tap-modal-body">
-              {rec.loading ? (
-                <div className="rec-loading">
-                  <span className="rec-loading-icon">⟳</span>
-                  <div>Analysing market conditions…</div>
-                  <div style={{ fontSize: 11, color: '#4a5578' }}>Evaluating IV levels, 52W positioning, and basket characteristics</div>
-                </div>
-              ) : rec.data ? (
-                <div style={{ display: 'flex', gap: 24 }}>
-                  {/* LEFT COLUMN */}
-                  <div style={{ flex: '0 0 60%' }}>
-                    <div style={{ fontSize: 11, color: '#b38559', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>
-                      AI Recommendation
+          <div className="tap-modal" style={{ maxWidth: 900, padding: 32 }}>
+            {rec.loading ? (
+              <div className="rec-loading">
+                <span className="rec-loading-icon">&#8635;</span>
+                <div>Analysing market conditions&#8230;</div>
+                <div style={{ fontSize: 11, color: '#4a5578' }}>Evaluating IV levels, 52W positioning, and basket characteristics</div>
+              </div>
+            ) : rec.data ? (
+              <div>
+                {/* SECTION 1 - Header */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+                  <div>
+                    <div style={{ fontSize: 11, color: '#b38559', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>
+                      Recommended Product
                     </div>
-                    <div style={{ fontSize: 28, fontFamily: 'Cormorant Garamond, serif', color: '#202a3e', fontWeight: 700, marginBottom: 8 }}>
+                    <div style={{ fontSize: 32, fontFamily: 'Cormorant Garamond, serif', color: '#202a3e', fontWeight: 700, lineHeight: 1.1 }}>
                       {rec.data.recommended}
                     </div>
-                    <div style={{ marginBottom: 16 }}>
-                      <span style={{ background: rec.data.confidence === 'High' ? '#b38559' : '#6b7a99', color: '#fff', padding: '3px 10px', borderRadius: 3, fontSize: 11, fontWeight: 600 }}>
-                        {rec.data.confidence} Confidence
-                      </span>
-                    </div>
-                    <div style={{ fontSize: 13, lineHeight: 1.8, color: '#334155', borderLeft: '3px solid #b38559', paddingLeft: 16, marginBottom: 20 }}>
-                      {rec.data.justification}
-                    </div>
-                    <div style={{ fontSize: 11, fontWeight: 600, color: '#202a3e', letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: 10 }}>
-                      Why not the others?
-                    </div>
-                    {Object.entries(rec.data.whyNotOthers || {}).map(([prod, reason]) => (
-                      <div key={prod} style={{ marginBottom: 8, padding: '8px 12px', background: '#f3f4f5', borderRadius: 6 }}>
-                        <span style={{ fontWeight: 600, color: '#202a3e', fontSize: 12 }}>{prod}: </span>
-                        <span style={{ color: '#64748b', fontSize: 12 }}>{reason}</span>
-                      </div>
-                    ))}
                   </div>
-                  {/* DIVIDER */}
-                  <div style={{ width: 1, background: '#b38559', opacity: 0.3, flexShrink: 0 }} />
-                  {/* RIGHT COLUMN */}
-                  <div style={{ flex: '0 0 36%' }}>
-                    <div style={{ fontSize: 11, color: '#b38559', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 16 }}>
-                      Suggested Parameters
-                    </div>
-                    {Object.entries(rec.data.suggestedParams || {}).map(([key, val]) => (
-                      <div key={key} style={{ display: 'flex', justifyContent: 'space-between', padding: '9px 0', borderBottom: '1px solid #f3f4f5' }}>
-                        <span style={{ fontSize: 12, color: '#64748b', fontWeight: 500 }}>
-                          {key.replace(/([A-Z])/g, ' $1').trim()}
-                        </span>
-                        <span style={{ fontSize: 12, color: '#202a3e', fontWeight: 600, fontFamily: 'monospace' }}>
-                          {val}
-                        </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <span style={{
+                      background: rec.data.confidence === 'High' ? '#202a3e' : '#6b7a99',
+                      color: '#fff',
+                      padding: '5px 14px',
+                      fontSize: 11,
+                      fontWeight: 700,
+                      letterSpacing: '0.08em',
+                      textTransform: 'uppercase',
+                    }}>
+                      {rec.data.confidence ? rec.data.confidence.toUpperCase() : 'MEDIUM'} CONFIDENCE
+                    </span>
+                    <button
+                      onClick={() => setRec(prev => ({ ...prev, open: false }))}
+                      style={{ background: 'none', border: 'none', fontSize: 18, color: '#94a3b8', cursor: 'pointer', lineHeight: 1, padding: 4 }}>
+                      &#10005;
+                    </button>
+                  </div>
+                </div>
+
+                {/* DIVIDER */}
+                <div style={{ height: 1, background: '#e2e8f0', marginBottom: 24 }} />
+
+                {/* SECTION 2 - Justification */}
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 12, color: '#444', lineHeight: 1.8, fontFamily: 'Montserrat, sans-serif' }}>
+                    {rec.data.justification}
+                  </div>
+                </div>
+
+                {/* DIVIDER */}
+                <div style={{ height: 1, background: '#e2e8f0', marginBottom: 24 }} />
+
+                {/* SECTION 3 - Suggested Structure */}
+                <div style={{ background: '#f8f6f2', border: '1px solid #e8ddd0', padding: '20px 24px', marginBottom: 24 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+                    <div>
+                      <div style={{ fontSize: 16, fontFamily: 'Cormorant Garamond, serif', color: '#202a3e', fontWeight: 700, marginBottom: 4 }}>
+                        Suggested Structure
                       </div>
-                    ))}
+                      <div style={{ fontSize: 10, color: '#b38559', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+                        Suggested Parameters
+                      </div>
+                    </div>
                     <button
                       onClick={() => {
                         const mapping = {
@@ -1184,16 +1190,58 @@ Respond ONLY in this exact JSON format:
                           return row
                         })
                         set({ productRows: updatedRows })
-                        showToast('Parameters applied ✓')
+                        showToast('Parameters applied')
                         setRec(prev => ({ ...prev, open: false }))
                       }}
-                      style={{ marginTop: 20, width: '100%', padding: '10px 0', background: '#b38559', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'Montserrat, sans-serif' }}>
-                      Apply Parameters →
+                      style={{ background: '#b38559', color: '#fff', border: 'none', padding: '8px 20px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'Montserrat, sans-serif', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
+                      Apply Parameters
                     </button>
                   </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 32px' }}>
+                    {Object.entries(rec.data.suggestedParams || {}).map(([key, val]) => (
+                      <div key={key} style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid #e8ddd0' }}>
+                        <span style={{ fontSize: 12, color: '#64748b', fontWeight: 500 }}>
+                          {key.replace(/([A-Z])/g, ' $1').trim()}
+                        </span>
+                        <span style={{ fontSize: 12, color: '#202a3e', fontWeight: 700, fontFamily: 'monospace' }}>
+                          {val}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              ) : null}
-            </div>
+
+                {/* DIVIDER */}
+                <div style={{ height: 1, background: '#e2e8f0', marginBottom: 24 }} />
+
+                {/* SECTION 4 - Two columns */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32 }}>
+                  {/* LEFT - Basket Dynamics */}
+                  <div>
+                    <div style={{ fontSize: 11, color: '#b38559', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 12 }}>
+                      Basket Dynamics
+                    </div>
+                    <div style={{ fontSize: 12, color: '#444', lineHeight: 1.8, fontFamily: 'Montserrat, sans-serif' }}>
+                      {state.basketDynamics || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>No basket dynamics generated yet.</span>}
+                    </div>
+                  </div>
+                  {/* RIGHT - Why Not Others */}
+                  <div>
+                    <div style={{ fontSize: 11, color: '#b38559', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 12 }}>
+                      Why Not the Others?
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {Object.entries(rec.data.whyNotOthers || {}).map(([prod, reason]) => (
+                        <div key={prod} style={{ padding: '8px 12px', background: '#f3f4f5', borderLeft: '2px solid #e2e8f0' }}>
+                          <div style={{ fontWeight: 700, color: '#202a3e', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 3 }}>{prod}</div>
+                          <div style={{ color: '#64748b', fontSize: 12, lineHeight: 1.6 }}>{reason}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
       )}
