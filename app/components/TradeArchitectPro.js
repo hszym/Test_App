@@ -349,7 +349,21 @@ export default function TradeArchitectPro() {
   useEffect(() => {
     try {
       const saved = localStorage.getItem('tap_state_v3')
-      if (saved) setState(prev => ({ ...prev, ...JSON.parse(saved) }))
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        setState(prev => ({ ...prev, ...parsed }))
+        // Auto-refetch tickers that have cached data but are missing the name field (stale cache)
+        if (parsed.tickers) {
+          parsed.tickers.forEach(async (t, i) => {
+            if (t.symbol && t.data && !t.data.name) {
+              try {
+                const data = await fetchMarketData(t.symbol)
+                setState(prev => { const tickers = [...prev.tickers]; tickers[i] = { ...tickers[i], data }; return { ...prev, tickers } })
+              } catch {}
+            }
+          })
+        }
+      }
     } catch {}
   }, [])
 
