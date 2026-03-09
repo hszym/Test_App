@@ -50,6 +50,27 @@ export async function POST(request) {
   try {
     const token = await getSGToken()
 
+    // TEST: probe underlying-universe before attempting a quote
+    const testResponse = await fetch(
+      'https://sp-api.sgmarkets.com/api/v1/underlying-universe',
+      {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    )
+    const testData = await testResponse.json()
+    console.log('SG universe test status:', testResponse.status)
+    console.log('SG universe test response:', JSON.stringify(testData).slice(0, 500))
+
+    return NextResponse.json({
+      tokenOk: true,
+      universeStatus: testResponse.status,
+      universeData: testData,
+    })
+
     // Use the bare-minimum payload format from SG docs
     const quotePayload = {
       variationParameters: {
