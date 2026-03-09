@@ -327,6 +327,7 @@ body{background:#f3f4f5;color:#202a3e;font-family:${FONT}}
 .sg-badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;letter-spacing:.03em;white-space:nowrap}
 .sg-badge-ok{background:#f0fdf4;color:#059669;border:1px solid #86efac}
 .sg-badge-no{background:#fff7ed;color:#c2410c;border:1px solid #fed7aa}
+.sg-badge-expired{background:#fef2f2;color:#b91c1c;border:1px solid #fca5a5}
 .sg-expiry{font-size:11px;color:#6b7280;flex:1;min-width:0}
 .sg-connect-btn{background:#ea580c;color:#fff;border:none;border-radius:6px;padding:7px 14px;font-size:11px;font-weight:600;cursor:pointer;font-family:'Montserrat',sans-serif;letter-spacing:.03em;white-space:nowrap;transition:background .15s}
 .sg-connect-btn:hover{background:#c2410c}
@@ -701,29 +702,60 @@ Respond ONLY in this exact JSON format:
           <div>
             {(() => {
               const connected = state.sgToken && state.sgTokenExpiry && Date.now() < state.sgTokenExpiry
+              const expired = state.sgToken && state.sgTokenExpiry && Date.now() >= state.sgTokenExpiry
+              const minsLeft = connected ? Math.max(0, Math.round((state.sgTokenExpiry - Date.now()) / 60000)) : 0
+
               const connectSG = () => {
-                const params = new URLSearchParams({
-                  response_type: 'token',
-                  client_id: '9da710fa-a553-476e-88eb-36383c8da680',
-                  redirect_uri: window.location.origin + window.location.pathname,
-                  scope: 'api.sgmarkets-execution-structured-products.v1',
-                })
-                window.location.href = `https://sso.sgmarkets.com/sgconnect/oauth2/authorize?${params}`
+                const popup = window.open(
+                  'https://sso.sgmarkets.com/sgconnect/oauth2/authorize?' + new URLSearchParams({
+                    response_type: 'token',
+                    client_id: '9da710fa-a553-476e-88eb-36383c8da680',
+                    redirect_uri: 'https://sgme-sp-api.azureedge.net/oauth2-redirect.html',
+                    scope: 'api.sgmarkets-execution-structured-products.v1',
+                    nonce: 'faeafaeafaeaf',
+                  }),
+                  'sg-auth',
+                  'width=600,height=700'
+                )
+                const pollTimer = setInterval(() => {
+                  try {
+                    const popupUrl = popup.location.href
+                    if (popupUrl.includes('access_token')) {
+                      const hash = new URL(popupUrl).hash
+                      const params = new URLSearchParams(hash.substring(1))
+                      const token = params.get('access_token')
+                      const expiresIn = params.get('expires_in')
+                      if (token) {
+                        const expiry = Date.now() + parseInt(expiresIn || '600') * 1000
+                        setState(prev => ({ ...prev, sgToken: token, sgTokenExpiry: expiry }))
+                        popup.close()
+                        clearInterval(pollTimer)
+                        showToast('SG Markets connected ✓')
+                      }
+                    }
+                  } catch (e) {
+                    // Cross-origin — popup still on SG login page, keep polling
+                  }
+                  if (popup.closed) clearInterval(pollTimer)
+                }, 500)
               }
+
               return (
                 <div className="sg-bar">
                   <span className="sg-brand">SG Markets</span>
                   {connected ? (
                     <>
                       <span className="sg-badge sg-badge-ok">● Connected</span>
-                      <span className="sg-expiry">Token expires {new Date(state.sgTokenExpiry).toLocaleTimeString()}</span>
+                      <span className="sg-expiry">Token expires in {minsLeft}m ({new Date(state.sgTokenExpiry).toLocaleTimeString()})</span>
                       <button className="sg-disconnect-btn" onClick={() => set({ sgToken: null, sgTokenExpiry: null })}>Disconnect</button>
                     </>
                   ) : (
                     <>
-                      <span className="sg-badge sg-badge-no">● Not connected</span>
-                      <span className="sg-expiry">Connect to fetch live prices in Step 3</span>
-                      <button className="sg-connect-btn" onClick={connectSG}>Connect to SG Markets</button>
+                      <span className={`sg-badge ${expired ? 'sg-badge-expired' : 'sg-badge-no'}`}>
+                        {expired ? '● Token expired' : '● Not connected'}
+                      </span>
+                      <span className="sg-expiry">{expired ? 'Your session expired — reconnect to continue pricing' : 'Connect to fetch live prices in Step 3'}</span>
+                      <button className="sg-connect-btn" onClick={connectSG}>{expired ? 'Reconnect' : 'Connect to SG Markets'}</button>
                     </>
                   )}
                 </div>
