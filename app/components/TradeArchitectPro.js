@@ -334,56 +334,6 @@ function PricingGrid({ label, rowLabels, colLabels, grid, onChange, note }) {
   )
 }
 
-function RecCard({ data, onApply }) {
-  const [showWhy, setShowWhy] = useState(false)
-  const paramLabels = {
-    tenor: 'Maturity', barrier: 'Barrier Level', couponFrequency: 'Coupon Frequency',
-    autocallFrequency: 'Autocall', protection: 'Capital Protection',
-  }
-  return (
-    <div className="rec-layout">
-      <div className="rec-left">
-        <div className="rec-col-title">AI Recommendation</div>
-        <div className="rec-product-name">{data.recommended}</div>
-        <div style={{ marginBottom: 18 }}>
-          <span className={data.confidence === 'High' ? 'rec-confidence-high' : 'rec-confidence-med'}>
-            {data.confidence} Confidence
-          </span>
-        </div>
-        <div className="rec-justification">{data.justification}</div>
-        {data.whyNotOthers && (
-          <>
-            <button className="rec-why-btn" onClick={() => setShowWhy(p => !p)}>
-              Why not the others? {showWhy ? '▲' : '▼'}
-            </button>
-            {showWhy && (
-              <div className="rec-why-list">
-                {Object.entries(data.whyNotOthers).map(([prod, reason]) => (
-                  <div key={prod} className="rec-why-item">
-                    <span className="rec-why-product">{prod}</span>
-                    <span className="rec-why-reason">{reason}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </>
-        )}
-      </div>
-      <div className="rec-right">
-        <div className="rec-col-title">Suggested Parameters</div>
-        <div className="rec-params">
-          {Object.entries(data.suggestedParams || {}).map(([k, v]) => (
-            <div key={k} className="rec-param-row">
-              <span className="rec-param-key">{paramLabels[k] || k}</span>
-              <span className="rec-param-val">{v}</span>
-            </div>
-          ))}
-        </div>
-        <button className="rec-apply-btn" onClick={onApply}>✓ Apply Parameters</button>
-      </div>
-    </div>
-  )
-}
 
 export default function TradeArchitectPro() {
   const [state, setState] = useState(DEFAULT_STATE)
@@ -1160,7 +1110,7 @@ Respond ONLY in this exact JSON format:
 
       {rec.open && (
         <div className="tap-modal-overlay" onClick={e => e.target === e.currentTarget && !rec.loading && setRec(prev => ({ ...prev, open: false }))}>
-          <div className="tap-modal" style={{ maxWidth: 840 }}>
+          <div className="tap-modal" style={{ maxWidth: 800 }}>
             <div className="tap-modal-header">
               <div className="tap-modal-title">🎯 AI Product Recommendation</div>
               {!rec.loading && <button className="tap-btn tap-btn-secondary tap-btn-sm" onClick={() => setRec(prev => ({ ...prev, open: false }))}>✕ Close</button>}
@@ -1173,7 +1123,75 @@ Respond ONLY in this exact JSON format:
                   <div style={{ fontSize: 11, color: '#4a5578' }}>Evaluating IV levels, 52W positioning, and basket characteristics</div>
                 </div>
               ) : rec.data ? (
-                <RecCard data={rec.data} onApply={applyRecommendation} />
+                <div style={{ display: 'flex', gap: 24 }}>
+                  {/* LEFT COLUMN */}
+                  <div style={{ flex: '0 0 60%' }}>
+                    <div style={{ fontSize: 11, color: '#b38559', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>
+                      AI Recommendation
+                    </div>
+                    <div style={{ fontSize: 28, fontFamily: 'Cormorant Garamond, serif', color: '#202a3e', fontWeight: 700, marginBottom: 8 }}>
+                      {rec.data.recommended}
+                    </div>
+                    <div style={{ marginBottom: 16 }}>
+                      <span style={{ background: rec.data.confidence === 'High' ? '#b38559' : '#6b7a99', color: '#fff', padding: '3px 10px', borderRadius: 3, fontSize: 11, fontWeight: 600 }}>
+                        {rec.data.confidence} Confidence
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 13, lineHeight: 1.8, color: '#334155', borderLeft: '3px solid #b38559', paddingLeft: 16, marginBottom: 20 }}>
+                      {rec.data.justification}
+                    </div>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: '#202a3e', letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: 10 }}>
+                      Why not the others?
+                    </div>
+                    {Object.entries(rec.data.whyNotOthers || {}).map(([prod, reason]) => (
+                      <div key={prod} style={{ marginBottom: 8, padding: '8px 12px', background: '#f3f4f5', borderRadius: 6 }}>
+                        <span style={{ fontWeight: 600, color: '#202a3e', fontSize: 12 }}>{prod}: </span>
+                        <span style={{ color: '#64748b', fontSize: 12 }}>{reason}</span>
+                      </div>
+                    ))}
+                  </div>
+                  {/* DIVIDER */}
+                  <div style={{ width: 1, background: '#b38559', opacity: 0.3, flexShrink: 0 }} />
+                  {/* RIGHT COLUMN */}
+                  <div style={{ flex: '0 0 36%' }}>
+                    <div style={{ fontSize: 11, color: '#b38559', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 16 }}>
+                      Suggested Parameters
+                    </div>
+                    {Object.entries(rec.data.suggestedParams || {}).map(([key, val]) => (
+                      <div key={key} style={{ display: 'flex', justifyContent: 'space-between', padding: '9px 0', borderBottom: '1px solid #f3f4f5' }}>
+                        <span style={{ fontSize: 12, color: '#64748b', fontWeight: 500 }}>
+                          {key.replace(/([A-Z])/g, ' $1').trim()}
+                        </span>
+                        <span style={{ fontSize: 12, color: '#202a3e', fontWeight: 600, fontFamily: 'monospace' }}>
+                          {val}
+                        </span>
+                      </div>
+                    ))}
+                    <button
+                      onClick={() => {
+                        const mapping = {
+                          tenor: 'Maturity',
+                          barrier: 'Worst-of (WO) Barrier',
+                          couponFrequency: 'Coupon Frequency',
+                          autocallFrequency: 'Autocall Barrier',
+                          protection: 'Protection Barrier',
+                        }
+                        const updatedRows = state.productRows.map(row => {
+                          const paramKey = Object.keys(mapping).find(k => mapping[k] === row.key)
+                          if (paramKey && rec.data.suggestedParams[paramKey]) {
+                            return { ...row, val: rec.data.suggestedParams[paramKey] }
+                          }
+                          return row
+                        })
+                        set({ productRows: updatedRows })
+                        showToast('Parameters applied ✓')
+                        setRec(prev => ({ ...prev, open: false }))
+                      }}
+                      style={{ marginTop: 20, width: '100%', padding: '10px 0', background: '#b38559', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'Montserrat, sans-serif' }}>
+                      Apply Parameters →
+                    </button>
+                  </div>
+                </div>
               ) : null}
             </div>
           </div>
