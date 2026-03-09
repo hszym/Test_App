@@ -59,6 +59,7 @@ const DEFAULT_STATE = {
   sgToken: null,
   sgTokenExpiry: null,
   logoUrl: '',
+  recommendation: null,
 }
 
 // ─── AI CALL — hits our own secure Next.js API route, not Anthropic directly ─
@@ -343,7 +344,7 @@ export default function TradeArchitectPro() {
   const fileRef = useRef()
   const [sgLoading, setSgLoading] = useState({})
   const [sgLivePrices, setSgLivePrices] = useState({})
-  const [rec, setRec] = useState({ open: false, loading: false, data: null })
+  const [recLoading, setRecLoading] = useState(false)
   const [sgPasteUrl, setSgPasteUrl] = useState('')
   const [sgAwaitingPaste, setSgAwaitingPaste] = useState(false)
 
@@ -452,7 +453,7 @@ export default function TradeArchitectPro() {
   const handleRecommendation = useCallback(async () => {
     const loaded = state.tickers.filter(t => t.symbol && t.data)
     if (loaded.length < 2) return
-    setRec({ open: true, loading: true, data: null })
+    setRecLoading(true)
     const tickerLines = loaded.map(t => {
       const p = t.data
       const pos = Math.round(((p.price - p.low52) / (p.high52 - p.low52)) * 100)
@@ -498,29 +499,14 @@ Respond ONLY in this exact JSON format:
       const raw = await callClaude(prompt, true)
       const jsonMatch = raw.match(/\{[\s\S]*\}/)
       const data = JSON.parse(jsonMatch ? jsonMatch[0] : raw)
-      setRec({ open: true, loading: false, data })
+      set({ recommendation: data })
+      setRecLoading(false)
     } catch (err) {
-      setRec({ open: false, loading: false, data: null })
+      setRecLoading(false)
       showToast('Recommendation error: ' + (err?.message || 'Unknown'))
     }
   }, [state.tickers])
 
-  const applyRecommendation = useCallback(() => {
-    const sp = rec.data?.suggestedParams
-    if (!sp) return
-    const newRows = [
-      { key: 'Maturity', val: sp.tenor || '24 Months' },
-      { key: 'Worst-of (WO) Barrier', val: sp.barrier || '70%' },
-      { key: 'Autocall Barrier', val: '100%' },
-      { key: 'Protection Barrier', val: sp.protection || sp.barrier || '60%' },
-      { key: 'Coupon Barrier', val: sp.barrier || '70%' },
-      { key: 'Coupon Frequency', val: sp.couponFrequency || 'Quarterly' },
-      { key: 'Autocall', val: sp.autocallFrequency || 'Quarterly from month 6' },
-    ]
-    setState(prev => ({ ...prev, productRows: newRows }))
-    setRec(prev => ({ ...prev, open: false }))
-    showToast('Parameters applied from AI recommendation')
-  }, [rec.data])
 
   const updateGrid = useCallback((gridName, ri, ci, val) => {
     setState(prev => {
@@ -874,12 +860,6 @@ Respond ONLY in this exact JSON format:
               </div>
             </div>
 
-            {activeTickers.length >= 2 && (
-              <button className="rec-btn" onClick={handleRecommendation}>
-                🎯 Get AI Product Recommendation
-              </button>
-            )}
-
             <div className="tap-wb-block" style={{ marginBottom: 16 }}>
               <div className="tap-wb-block-header">
                 <div className="tap-wb-block-title">🔗 Basket Dynamics</div>
@@ -895,35 +875,106 @@ Respond ONLY in this exact JSON format:
               </div>
             </div>
 
-            <div className="tap-wb-block">
+            <div className="tap-wb-block" style={{ marginBottom: 16 }}>
               <div className="tap-wb-block-header">
-                <div className="tap-wb-block-title">⚙️ Product Parameters</div>
-                <span className="tap-tag tap-tag-purple">Structured Product</span>
+                <div className="tap-wb-block-title">🎯 AI Product Recommendation</div>
               </div>
               <div className="tap-wb-block-body">
-                <div style={{ fontSize: 11, color: '#4a5578', marginBottom: 12 }}>Both parameter name and value are editable — customise freely.</div>
-                <div style={{ border: '1px solid #1a2035', borderRadius: 8, overflow: 'hidden' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '40px 1fr 1fr', background: '#0a0c10', borderBottom: '1px solid #1a2035', padding: '7px 0' }}>
-                    <div />
-                    <div style={{ fontSize: 10, fontWeight: 600, color: '#4a5578', letterSpacing: '0.08em', textTransform: 'uppercase', paddingLeft: 12 }}>Parameter</div>
-                    <div style={{ fontSize: 10, fontWeight: 600, color: '#4a5578', letterSpacing: '0.08em', textTransform: 'uppercase', paddingLeft: 12 }}>Value</div>
+                {recLoading ? (
+                  <div className="rec-loading">
+                    <span className="rec-loading-icon">⟳</span>
+                    <div>Analysing market conditions…</div>
+                    <div style={{ fontSize: 11, color: '#4a5578' }}>Evaluating IV levels, 52W positioning, and basket characteristics</div>
                   </div>
-                  {state.productRows.map((row, i) => (
-                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '40px 1fr 1fr', borderBottom: i < state.productRows.length - 1 ? '1px solid #141824' : 'none', alignItems: 'center' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontSize: 10, color: '#2a3555', fontFamily: MONO }}>{String(i + 1).padStart(2, '0')}</span></div>
-                      <input className="tap-input" style={{ border: 'none', borderRight: '1px solid #141824', borderRadius: 0, fontSize: 12, color: '#a0aec0', background: 'transparent', padding: '9px 12px' }}
-                        value={row.key} placeholder="Parameter name…"
-                        onChange={e => setState(prev => { const productRows = [...prev.productRows]; productRows[i] = { ...productRows[i], key: e.target.value }; return { ...prev, productRows } })} />
-                      <input className="tap-input" style={{ border: 'none', borderRadius: 0, fontSize: 12, fontFamily: MONO, fontWeight: 600, color: '#e8eaf0', background: 'transparent', padding: '9px 12px' }}
-                        value={row.val} placeholder="Value…"
-                        onChange={e => setState(prev => { const productRows = [...prev.productRows]; productRows[i] = { ...productRows[i], val: e.target.value }; return { ...prev, productRows } })} />
+                ) : state.recommendation ? (
+                  <div>
+                    {/* TOP SECTION */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+                      <div>
+                        <div style={{ fontSize: 11, color: '#b38559', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>Recommended Product</div>
+                        <div style={{ fontSize: 28, fontFamily: "'Cormorant Garamond', serif", color: '#202a3e', fontWeight: 700, lineHeight: 1.1 }}>
+                          {state.recommendation.recommended}
+                        </div>
+                      </div>
+                      <span style={{ background: '#6b7a99', color: '#fff', padding: '4px 12px', fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', borderRadius: 20 }}>
+                        {(state.recommendation.confidence || 'Medium').toUpperCase()} CONFIDENCE
+                      </span>
                     </div>
-                  ))}
-                </div>
-                <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-                  <button className="tap-btn tap-btn-secondary tap-btn-sm" onClick={() => setState(prev => ({ ...prev, productRows: [...prev.productRows, { key: '', val: '' }] }))}>+ Add Row</button>
-                  {state.productRows.length > 1 && <button className="tap-btn tap-btn-secondary tap-btn-sm" style={{ color: '#f87171' }} onClick={() => setState(prev => ({ ...prev, productRows: prev.productRows.slice(0, -1) }))}>− Remove Last</button>}
-                </div>
+                    <div style={{ fontSize: 12, color: '#444', lineHeight: 1.8, borderLeft: '3px solid #b38559', paddingLeft: 16, marginBottom: 24 }}>
+                      {state.recommendation.justification}
+                    </div>
+
+                    {/* MIDDLE SECTION — Suggested Structure */}
+                    <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, padding: 20, marginBottom: 24 }}>
+                      <div style={{ fontSize: 18, fontFamily: "'Cormorant Garamond', serif", color: '#202a3e', fontWeight: 700, marginBottom: 4 }}>Suggested Structure</div>
+                      <div style={{ fontSize: 10, color: '#6b7280', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 16 }}>Suggested Parameters</div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 32px', marginBottom: 20 }}>
+                        {Object.entries(state.recommendation.suggestedParams || {}).map(([key, val]) => (
+                          <div key={key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 0', borderBottom: '1px solid #f0f0f0' }}>
+                            <span style={{ fontSize: 11, color: '#6b7280', fontWeight: 500 }}>{key.replace(/([A-Z])/g, ' $1').trim()}</span>
+                            <span style={{ fontSize: 12, color: '#202a3e', fontWeight: 700, fontFamily: 'monospace' }}>{val}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <button
+                          onClick={handleRecommendation}
+                          disabled={activeTickers.length < 2 || recLoading}
+                          style={{ background: '#fff', border: '1px solid #e2e8f0', color: '#6b7280', padding: '7px 14px', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'Montserrat, sans-serif', borderRadius: 6 }}>
+                          ↺ Regenerate
+                        </button>
+                        <button
+                          onClick={() => {
+                            const mapping = { tenor: 'Maturity', barrier: 'Worst-of (WO) Barrier', couponFrequency: 'Coupon Frequency', autocallFrequency: 'Autocall Barrier', protection: 'Protection Barrier' }
+                            const updatedRows = state.productRows.map(row => {
+                              const paramKey = Object.keys(mapping).find(k => mapping[k] === row.key)
+                              if (paramKey && state.recommendation.suggestedParams[paramKey]) return { ...row, val: state.recommendation.suggestedParams[paramKey] }
+                              return row
+                            })
+                            set({ productRows: updatedRows })
+                            showToast('Parameters applied ✓')
+                          }}
+                          style={{ background: '#b38559', color: '#fff', border: 'none', padding: '8px 20px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'Montserrat, sans-serif', letterSpacing: '0.04em', borderRadius: 6 }}>
+                          Apply Parameters →
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* BOTTOM SECTION — Two columns */}
+                    <div style={{ display: 'flex', gap: 0 }}>
+                      <div style={{ flex: 1, paddingRight: 24 }}>
+                        <div style={{ fontSize: 16, fontFamily: "'Cormorant Garamond', serif", color: '#202a3e', fontWeight: 700, marginBottom: 12 }}>Basket Dynamics</div>
+                        <div style={{ fontSize: 11, color: '#333', lineHeight: 1.8, textAlign: 'justify' }}>
+                          {state.basketDynamics || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>No basket dynamics generated yet.</span>}
+                        </div>
+                      </div>
+                      <div style={{ width: 1, background: '#b38559', opacity: 0.3, flexShrink: 0 }} />
+                      <div style={{ flex: 1, paddingLeft: 24 }}>
+                        <div style={{ fontSize: 16, fontFamily: "'Cormorant Garamond', serif", color: '#202a3e', fontWeight: 700, marginBottom: 12 }}>Why not the others?</div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                          {Object.entries(state.recommendation.whyNotOthers || {}).map(([prod, reason]) => (
+                            <div key={prod} style={{ fontSize: 11, color: '#333', lineHeight: 1.8 }}>
+                              <strong style={{ color: '#202a3e' }}>{prod}</strong> – {reason}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ padding: '8px 0 16px' }}>
+                    {activeTickers.length < 2 ? (
+                      <div style={{ textAlign: 'center', padding: '24px 0', color: '#6b7280', fontSize: 13 }}>Add and fetch at least 2 tickers to get an AI recommendation.</div>
+                    ) : (
+                      <button
+                        onClick={handleRecommendation}
+                        style={{ width: '100%', padding: '16px 20px', background: '#b38559', color: '#fff', border: 'none', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'Montserrat, sans-serif', letterSpacing: '0.04em', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                        <span>🎯 Get AI Recommendation</span>
+                        <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.85 }}>Analyse basket conditions and get an AI-powered product recommendation</span>
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1010,7 +1061,7 @@ Respond ONLY in this exact JSON format:
                 <div className="tap-export-card-desc">Plain text with ASCII pricing tables. Copy and paste into any email client.</div>
               </div>
               <div className="tap-export-card" onClick={() => {
-                const html = buildHTMLExport(state, rec.data)
+                const html = buildHTMLExport(state, state.recommendation)
                 const blob = new Blob([html], { type: 'text/html' })
                 const url = URL.createObjectURL(blob)
                 const a = document.createElement('a')
@@ -1027,7 +1078,7 @@ Respond ONLY in this exact JSON format:
                 <div className="tap-export-card-desc">Download the pitch as a self-contained HTML file ready to print as PDF.</div>
               </div>
               <div className="tap-export-card" onClick={() => {
-                const html = buildHTMLExport(state, rec.data)
+                const html = buildHTMLExport(state, state.recommendation)
                 const blob = new Blob([html], { type: 'text/html' })
                 const url = URL.createObjectURL(blob)
                 window.open(url, '_blank')
@@ -1108,143 +1159,6 @@ Respond ONLY in this exact JSON format:
         </div>
       )}
 
-      {rec.open && (
-        <div className="tap-modal-overlay" onClick={e => e.target === e.currentTarget && !rec.loading && setRec(prev => ({ ...prev, open: false }))}>
-          <div className="tap-modal" style={{ maxWidth: 900, padding: 32 }}>
-            {rec.loading ? (
-              <div className="rec-loading">
-                <span className="rec-loading-icon">&#8635;</span>
-                <div>Analysing market conditions&#8230;</div>
-                <div style={{ fontSize: 11, color: '#4a5578' }}>Evaluating IV levels, 52W positioning, and basket characteristics</div>
-              </div>
-            ) : rec.data ? (
-              <div>
-                {/* SECTION 1 - Header */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
-                  <div>
-                    <div style={{ fontSize: 11, color: '#b38559', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>
-                      Recommended Product
-                    </div>
-                    <div style={{ fontSize: 32, fontFamily: 'Cormorant Garamond, serif', color: '#202a3e', fontWeight: 700, lineHeight: 1.1 }}>
-                      {rec.data.recommended}
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <span style={{
-                      background: rec.data.confidence === 'High' ? '#202a3e' : '#6b7a99',
-                      color: '#fff',
-                      padding: '5px 14px',
-                      fontSize: 11,
-                      fontWeight: 700,
-                      letterSpacing: '0.08em',
-                      textTransform: 'uppercase',
-                    }}>
-                      {rec.data.confidence ? rec.data.confidence.toUpperCase() : 'MEDIUM'} CONFIDENCE
-                    </span>
-                    <button
-                      onClick={() => setRec(prev => ({ ...prev, open: false }))}
-                      style={{ background: 'none', border: 'none', fontSize: 18, color: '#94a3b8', cursor: 'pointer', lineHeight: 1, padding: 4 }}>
-                      &#10005;
-                    </button>
-                  </div>
-                </div>
-
-                {/* DIVIDER */}
-                <div style={{ height: 1, background: '#e2e8f0', marginBottom: 24 }} />
-
-                {/* SECTION 2 - Justification */}
-                <div style={{ marginBottom: 24 }}>
-                  <div style={{ fontSize: 12, color: '#444', lineHeight: 1.8, fontFamily: 'Montserrat, sans-serif' }}>
-                    {rec.data.justification}
-                  </div>
-                </div>
-
-                {/* DIVIDER */}
-                <div style={{ height: 1, background: '#e2e8f0', marginBottom: 24 }} />
-
-                {/* SECTION 3 - Suggested Structure */}
-                <div style={{ background: '#f8f6f2', border: '1px solid #e8ddd0', padding: '20px 24px', marginBottom: 24 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
-                    <div>
-                      <div style={{ fontSize: 16, fontFamily: 'Cormorant Garamond, serif', color: '#202a3e', fontWeight: 700, marginBottom: 4 }}>
-                        Suggested Structure
-                      </div>
-                      <div style={{ fontSize: 10, color: '#b38559', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-                        Suggested Parameters
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => {
-                        const mapping = {
-                          tenor: 'Maturity',
-                          barrier: 'Worst-of (WO) Barrier',
-                          couponFrequency: 'Coupon Frequency',
-                          autocallFrequency: 'Autocall Barrier',
-                          protection: 'Protection Barrier',
-                        }
-                        const updatedRows = state.productRows.map(row => {
-                          const paramKey = Object.keys(mapping).find(k => mapping[k] === row.key)
-                          if (paramKey && rec.data.suggestedParams[paramKey]) {
-                            return { ...row, val: rec.data.suggestedParams[paramKey] }
-                          }
-                          return row
-                        })
-                        set({ productRows: updatedRows })
-                        showToast('Parameters applied')
-                        setRec(prev => ({ ...prev, open: false }))
-                      }}
-                      style={{ background: '#b38559', color: '#fff', border: 'none', padding: '8px 20px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'Montserrat, sans-serif', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
-                      Apply Parameters
-                    </button>
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 32px' }}>
-                    {Object.entries(rec.data.suggestedParams || {}).map(([key, val]) => (
-                      <div key={key} style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid #e8ddd0' }}>
-                        <span style={{ fontSize: 12, color: '#64748b', fontWeight: 500 }}>
-                          {key.replace(/([A-Z])/g, ' $1').trim()}
-                        </span>
-                        <span style={{ fontSize: 12, color: '#202a3e', fontWeight: 700, fontFamily: 'monospace' }}>
-                          {val}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* DIVIDER */}
-                <div style={{ height: 1, background: '#e2e8f0', marginBottom: 24 }} />
-
-                {/* SECTION 4 - Two columns */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32 }}>
-                  {/* LEFT - Basket Dynamics */}
-                  <div>
-                    <div style={{ fontSize: 11, color: '#b38559', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 12 }}>
-                      Basket Dynamics
-                    </div>
-                    <div style={{ fontSize: 12, color: '#444', lineHeight: 1.8, fontFamily: 'Montserrat, sans-serif' }}>
-                      {state.basketDynamics || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>No basket dynamics generated yet.</span>}
-                    </div>
-                  </div>
-                  {/* RIGHT - Why Not Others */}
-                  <div>
-                    <div style={{ fontSize: 11, color: '#b38559', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 12 }}>
-                      Why Not the Others?
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      {Object.entries(rec.data.whyNotOthers || {}).map(([prod, reason]) => (
-                        <div key={prod} style={{ padding: '8px 12px', background: '#f3f4f5', borderLeft: '2px solid #e2e8f0' }}>
-                          <div style={{ fontWeight: 700, color: '#202a3e', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 3 }}>{prod}</div>
-                          <div style={{ color: '#64748b', fontSize: 12, lineHeight: 1.6 }}>{reason}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : null}
-          </div>
-        </div>
-      )}
 
       {toast && <Toast msg={toast} onClose={() => setToast(null)} />}
     </div>

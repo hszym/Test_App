@@ -360,7 +360,7 @@ export function buildHTMLExport(state, recommendation) {
   </div>
 </div>
 
-<!-- PAGE 2: Basket Dynamics + AI Recommendation + Product Parameters -->
+<!-- PAGE 2: Basket Dynamics + AI Recommendation -->
 <div class="page">
   ${headerFull}
   <div class="content">
@@ -369,16 +369,18 @@ export function buildHTMLExport(state, recommendation) {
       <div class="thesis-block">${(state.basketDynamics || '').replace(/\n/g, '<br>')}</div>
     </div>
     ${recHTML}
+  </div>
+</div>
+
+<!-- PAGE 3: Product Parameters + Indicative Pricing + Footer -->
+<div class="page page-last">
+  ${headerSm}
+  <div class="content">
     <div class="section">
       <h2>Product Parameters</h2>
       <div class="param-grid">${paramCardsHTML}</div>
     </div>
   </div>
-</div>
-
-<!-- PAGE 3: Indicative Pricing + Footer -->
-<div class="page page-last">
-  ${headerSm}
   <div class="pricing-wrap">
     <h2>Indicative Pricing</h2>
     <div class="${gridWrapClass}">${pricingHTML}</div>
