@@ -443,19 +443,24 @@ export default function TradeArchitectPro() {
     }
   }, [state])
 
-  // SG Markets OAuth2 implicit-flow: extract token from URL hash after redirect
+  // SG Markets OAuth2: receive token via postMessage from the redirect page
   useEffect(() => {
-    const hash = window.location.hash
-    if (hash.includes('access_token')) {
-      const params = new URLSearchParams(hash.substring(1))
-      const token = params.get('access_token')
-      const expiresIn = params.get('expires_in')
-      if (token) {
-        const expiry = Date.now() + parseInt(expiresIn || '3600') * 1000
-        setState(prev => ({ ...prev, sgToken: token, sgTokenExpiry: expiry }))
-        window.history.replaceState({}, '', window.location.pathname)
+    const handleMessage = (event) => {
+      if (event.origin \!== 'https://sgme-sp-api.azureedge.net') return
+      const data = event.data
+      if (typeof data === 'string' && data.includes('access_token')) {
+        const params = new URLSearchParams(data.replace(/^.*#/, ''))
+        const token = params.get('access_token')
+        const expiresIn = params.get('expires_in')
+        if (token) {
+          const expiry = Date.now() + parseInt(expiresIn || '600') * 1000
+          setState(prev => ({ ...prev, sgToken: token, sgTokenExpiry: expiry }))
+          showToast('SG Markets connected ✓')
+        }
       }
     }
+    window.addEventListener('message', handleMessage)
+    return () => window.removeEventListener('message', handleMessage)
   }, [])
 
   const set = useCallback((updater) => setState(prev => {
@@ -706,7 +711,7 @@ Respond ONLY in this exact JSON format:
               const minsLeft = connected ? Math.max(0, Math.round((state.sgTokenExpiry - Date.now()) / 60000)) : 0
 
               const connectSG = () => {
-                const popup = window.open(
+                window.open(
                   'https://sso.sgmarkets.com/sgconnect/oauth2/authorize?' + new URLSearchParams({
                     response_type: 'token',
                     client_id: '9da710fa-a553-476e-88eb-36383c8da680',
@@ -717,27 +722,6 @@ Respond ONLY in this exact JSON format:
                   'sg-auth',
                   'width=600,height=700'
                 )
-                const pollTimer = setInterval(() => {
-                  try {
-                    const popupUrl = popup.location.href
-                    if (popupUrl.includes('access_token')) {
-                      const hash = new URL(popupUrl).hash
-                      const params = new URLSearchParams(hash.substring(1))
-                      const token = params.get('access_token')
-                      const expiresIn = params.get('expires_in')
-                      if (token) {
-                        const expiry = Date.now() + parseInt(expiresIn || '600') * 1000
-                        setState(prev => ({ ...prev, sgToken: token, sgTokenExpiry: expiry }))
-                        popup.close()
-                        clearInterval(pollTimer)
-                        showToast('SG Markets connected ✓')
-                      }
-                    }
-                  } catch (e) {
-                    // Cross-origin — popup still on SG login page, keep polling
-                  }
-                  if (popup.closed) clearInterval(pollTimer)
-                }, 500)
               }
 
               return (
