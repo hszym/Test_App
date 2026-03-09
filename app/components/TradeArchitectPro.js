@@ -446,7 +446,7 @@ export default function TradeArchitectPro() {
   // SG Markets OAuth2: receive token via postMessage from the redirect page
   useEffect(() => {
     const handleMessage = (event) => {
-      if (event.origin \!== 'https://sgme-sp-api.azureedge.net') return
+      if (event.origin !== 'https://sgme-sp-api.azureedge.net') return
       const data = event.data
       if (typeof data === 'string' && data.includes('access_token')) {
         const params = new URLSearchParams(data.replace(/^.*#/, ''))
