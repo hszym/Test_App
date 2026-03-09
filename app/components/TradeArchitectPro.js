@@ -693,6 +693,19 @@ Respond ONLY in this exact JSON format:
                 showToast('Could not find access_token in URL — please try again')
               }
 
+              const testSGDirect = async () => {
+                try {
+                  const res = await fetch('https://sp-api.sgmarkets.com/api/v1/underlying-universe', {
+                    headers: { 'Authorization': `Bearer ${state.sgToken}` }
+                  })
+                  console.log('Direct SG test status:', res.status)
+                  const text = await res.text()
+                  console.log('Direct SG test response:', text.slice(0, 300))
+                } catch(e) {
+                  console.error('Direct SG test error:', e.message)
+                }
+              }
+
               return (
                 <div className="sg-bar" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 10 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%' }}>
@@ -702,6 +715,7 @@ Respond ONLY in this exact JSON format:
                         <span className="sg-badge sg-badge-ok">● Connected</span>
                         <span className="sg-expiry">Token expires in {minsLeft}m ({new Date(state.sgTokenExpiry).toLocaleTimeString()})</span>
                         <button className="sg-disconnect-btn" onClick={() => { set({ sgToken: null, sgTokenExpiry: null }); setSgAwaitingPaste(false) }}>Disconnect</button>
+                        <button className="sg-disconnect-btn" onClick={testSGDirect} style={{ background: '#2e3a52', color: '#a0aec0' }}>Test SG Direct</button>
                       </>
                     ) : (
                       <>
