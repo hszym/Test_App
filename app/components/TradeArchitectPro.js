@@ -116,17 +116,6 @@ function downloadHTML(htmlContent, clientName) {
   URL.revokeObjectURL(url);
 }
 
-function exportPDF(state) {
-  // open a new window containing the HTML and auto-print
-  const html = buildHTMLExport(state, rec.data);
-  const printWindow = window.open('', '_blank');
-  if (!printWindow) {
-    alert('Popup blocked. Please allow popups for this site.');
-    return;
-  }
-  printWindow.document.write(html + "<script>window.onload = function(){window.print();};<\/script>");
-  printWindow.document.close();
-}
 
 function asciiTable(title, rowLabels, colLabels, grid) {
   const colW = 10, rowW = 16
@@ -1070,16 +1059,36 @@ Respond ONLY in this exact JSON format:
                 <div className="tap-export-card-title">Email Export</div>
                 <div className="tap-export-card-desc">Plain text with ASCII pricing tables. Copy and paste into any email client.</div>
               </div>
-              <div className="tap-export-card" onClick={() => { exportPDF(state); showToast('Print window opened'); }}>
-                <div className="tap-export-card-icon">🖨️</div>
-                <div className="tap-export-card-title">Export PDF</div>
-                <div className="tap-export-card-desc">Opens print preview in new tab; save as PDF using browser dialog.</div>
+              <div className="tap-export-card" onClick={() => {
+                const html = buildHTMLExport(state, rec.data)
+                const blob = new Blob([html], { type: 'text/html' })
+                const url = URL.createObjectURL(blob)
+                const a = document.createElement('a')
+                a.href = url
+                a.download = 'Plurimi_Pitch_' + (state.clientName || 'Client') + '_' + new Date().toISOString().slice(0,10) + '.html'
+                document.body.appendChild(a)
+                a.click()
+                document.body.removeChild(a)
+                URL.revokeObjectURL(url)
+                showToast('HTML file downloaded')
+              }}>
+                <div className="tap-export-card-icon">💾</div>
+                <div className="tap-export-card-title">Download HTML</div>
+                <div className="tap-export-card-desc">Download the pitch as a self-contained HTML file ready to print as PDF.</div>
               </div>
-              <div className="tap-export-card" onClick={() => setModal({ type: 'html', content: buildHTMLExport(state, rec.data) })}>
-                <div className="tap-export-card-icon">📋</div>
-                <div className="tap-export-card-title">Copy HTML Source</div>
-                <div className="tap-export-card-desc">Copy the full self-contained HTML to save and print manually.</div>
+              <div className="tap-export-card" onClick={() => {
+                const html = buildHTMLExport(state, rec.data)
+                const blob = new Blob([html], { type: 'text/html' })
+                const url = URL.createObjectURL(blob)
+                window.open(url, '_blank')
+              }}>
+                <div className="tap-export-card-icon">📄</div>
+                <div className="tap-export-card-title">Preview</div>
+                <div className="tap-export-card-desc">Open a live preview of the pitch document in a new browser tab.</div>
               </div>
+            </div>
+            <div style={{ fontSize: 12, color: '#6b7280', background: '#f9f9f9', border: '1px solid #e2e8f0', borderRadius: 6, padding: '10px 14px', marginBottom: 20, lineHeight: 1.7 }}>
+              💡 <strong>To save as PDF:</strong> click Download HTML → open the file in your browser → Ctrl/Cmd+P → Save as PDF → A4 format
             </div>
 
             <div className="tap-section-title" style={{ marginTop: 8 }}>Pitch Summary</div>
