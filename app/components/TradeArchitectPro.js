@@ -691,62 +691,81 @@ Respond ONLY in this exact JSON format:
               const connected = state.sgToken && state.sgTokenExpiry && Date.now() < state.sgTokenExpiry
               const expired = state.sgToken && state.sgTokenExpiry && Date.now() >= state.sgTokenExpiry
               const minsLeft = connected ? Math.max(0, Math.round((state.sgTokenExpiry - Date.now()) / 60000)) : 0
+              const [sgPasteUrl, setSgPasteUrl] = React.useState('')
+              const [sgAwaitingPaste, setSgAwaitingPaste] = React.useState(false)
 
-              const connectSG = () => {
-                const params = new URLSearchParams({
-                  response_type: 'token',
-                  client_id: '9da710fa-a553-476e-88eb-36383c8da680',
-                  redirect_uri: 'https://sgme-sp-api.azureedge.net/oauth2-redirect.html',
-                  scope: 'api.sgmarkets-execution-structured-products.v1',
-                  nonce: 'faeafaeafaeaf'
-                })
-
-                const popup = window.open(
-                  `https://sso.sgmarkets.com/sgconnect/oauth2/authorize?${params}`,
-                  'sg-auth',
-                  'width=600,height=700'
+              const openSGLogin = () => {
+                window.open(
+                  'https://sso.sgmarkets.com/sgconnect/oauth2/authorize?' + new URLSearchParams({
+                    response_type: 'token',
+                    client_id: '9da710fa-a553-476e-88eb-36383c8da680',
+                    redirect_uri: 'https://sgme-sp-api.azureedge.net/oauth2-redirect.html',
+                    scope: 'api.sgmarkets-execution-structured-products.v1',
+                    nonce: 'faeafaeafaeaf'
+                  }),
+                  '_blank'
                 )
+                setSgAwaitingPaste(true)
+                setSgPasteUrl('')
+              }
 
-                const pollTimer = setInterval(() => {
-                  try {
-                    const url = popup.location.href
-                    if (url.includes('access_token')) {
-                      clearInterval(pollTimer)
-                      const hash = url.split('#')[1]
-                      const p = new URLSearchParams(hash)
-                      const token = p.get('access_token')
-                      const expiresIn = p.get('expires_in')
-                      if (token) {
-                        const expiry = Date.now() + parseInt(expiresIn || '600') * 1000
-                        setState(prev => ({ ...prev, sgToken: token, sgTokenExpiry: expiry }))
-                        showToast('SG Markets connected ✓')
-                        popup.close()
-                      }
-                    }
-                  } catch (e) {
-                    // Still on cross-origin SG login page — keep polling
+              const submitPastedUrl = () => {
+                const hash = sgPasteUrl.split('#')[1]
+                if (hash) {
+                  const params = new URLSearchParams(hash)
+                  const token = params.get('access_token')
+                  const expiresIn = params.get('expires_in')
+                  if (token) {
+                    const expiry = Date.now() + parseInt(expiresIn || '600') * 1000
+                    setState(prev => ({ ...prev, sgToken: token, sgTokenExpiry: expiry }))
+                    setSgAwaitingPaste(false)
+                    setSgPasteUrl('')
+                    showToast('SG Markets connected ✓')
+                    return
                   }
-                  if (popup.closed) clearInterval(pollTimer)
-                }, 300)
+                }
+                showToast('Could not find access_token in URL — please try again')
               }
 
               return (
-                <div className="sg-bar">
-                  <span className="sg-brand">SG Markets</span>
-                  {connected ? (
-                    <>
-                      <span className="sg-badge sg-badge-ok">● Connected</span>
-                      <span className="sg-expiry">Token expires in {minsLeft}m ({new Date(state.sgTokenExpiry).toLocaleTimeString()})</span>
-                      <button className="sg-disconnect-btn" onClick={() => set({ sgToken: null, sgTokenExpiry: null })}>Disconnect</button>
-                    </>
-                  ) : (
-                    <>
-                      <span className={`sg-badge ${expired ? 'sg-badge-expired' : 'sg-badge-no'}`}>
-                        {expired ? '● Token expired' : '● Not connected'}
-                      </span>
-                      <span className="sg-expiry">{expired ? 'Your session expired — reconnect to continue pricing' : 'Connect to fetch live prices in Step 3'}</span>
-                      <button className="sg-connect-btn" onClick={connectSG}>{expired ? 'Reconnect' : 'Connect to SG Markets'}</button>
-                    </>
+                <div className="sg-bar" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 10 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%' }}>
+                    <span className="sg-brand">SG Markets</span>
+                    {connected ? (
+                      <>
+                        <span className="sg-badge sg-badge-ok">● Connected</span>
+                        <span className="sg-expiry">Token expires in {minsLeft}m ({new Date(state.sgTokenExpiry).toLocaleTimeString()})</span>
+                        <button className="sg-disconnect-btn" onClick={() => { set({ sgToken: null, sgTokenExpiry: null }); setSgAwaitingPaste(false) }}>Disconnect</button>
+                      </>
+                    ) : (
+                      <>
+                        <span className={`sg-badge ${expired ? 'sg-badge-expired' : 'sg-badge-no'}`}>
+                          {expired ? '● Token expired' : '● Not connected'}
+                        </span>
+                        <span className="sg-expiry">{expired ? 'Your session expired — reconnect to continue pricing' : 'Connect to fetch live prices in Step 3'}</span>
+                        <button className="sg-connect-btn" onClick={openSGLogin}>{expired ? 'Reconnect' : 'Connect to SG Markets'}</button>
+                      </>
+                    )}
+                  </div>
+                  {sgAwaitingPaste && !connected && (
+                    <div style={{ width: '100%', background: '#1a2235', border: '1px solid #2e3a52', borderRadius: 4, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <p style={{ margin: 0, fontSize: 12, color: '#a0aec0', lineHeight: 1.5 }}>
+                        After logging in, you will be redirected to a page. Copy the full URL from your browser address bar and paste it here.
+                      </p>
+                      <label style={{ fontSize: 11, fontWeight: 600, color: '#b38559', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                        Paste the full redirect URL from the new tab
+                      </label>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <input
+                          style={{ flex: 1, background: '#202a3e', border: '1px solid #2e3a52', borderRadius: 3, padding: '7px 10px', fontSize: 12, color: '#e2e8f0', outline: 'none', fontFamily: 'monospace' }}
+                          placeholder="https://sgme-sp-api.azureedge.net/oauth2-redirect.html#access_token=..."
+                          value={sgPasteUrl}
+                          onChange={e => setSgPasteUrl(e.target.value)}
+                          onKeyDown={e => e.key === 'Enter' && submitPastedUrl()}
+                        />
+                        <button className="sg-connect-btn" onClick={submitPastedUrl}>Connect</button>
+                      </div>
+                    </div>
                   )}
                 </div>
               )
