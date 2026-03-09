@@ -109,28 +109,29 @@ h2 { font-family: 'Cormorant Garamond', serif; font-size: 19px; font-weight: 600
 .disclaimer { font-size: 9px; color: #aaa; line-height: 1.7; font-style: italic }
 .footer-brand { font-size: 9px; color: #ccc; text-align: right; margin-top: 6px; font-weight: 500; letter-spacing: 0.04em }
 
-.ai-rec-section { margin-bottom: 28px; border: 1px solid #e2e8f0; padding: 20px 24px; background: #fff; page-break-inside: avoid }
-.ai-rec-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px }
-.ai-rec-product-label { font-size: 9px; color: #b38559; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 4px }
-.ai-rec-product-name { font-family: 'Cormorant Garamond', serif; font-size: 24px; font-weight: 700; color: #202a3e; line-height: 1.1 }
-.ai-rec-conf-high { background: #202a3e; color: #fff; font-size: 8px; font-weight: 700; padding: 3px 10px; letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap }
-.ai-rec-conf-med { background: #6b7a99; color: #fff; font-size: 8px; font-weight: 700; padding: 3px 10px; letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap }
-.ai-rec-divider { height: 1px; background: #e2e8f0; margin: 16px 0 }
-.ai-rec-justification { font-size: 10px; color: #444; line-height: 1.8; font-family: 'Montserrat', sans-serif }
-.ai-rec-structure { background: #f8f6f2; border: 1px solid #e8ddd0; padding: 14px 16px }
-.ai-rec-structure-title { font-family: 'Cormorant Garamond', serif; font-size: 14px; font-weight: 700; color: #202a3e; margin-bottom: 3px }
-.ai-rec-structure-sublabel { font-size: 9px; color: #b38559; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 10px }
-.ai-rec-param-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 24px }
-.ai-rec-param-row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #e8ddd0 }
+.ai-rec-section { border: 1px solid #e2e8f0; padding: 22px 24px; background: #fff; page-break-inside: avoid; margin-bottom: 20px }
+.ai-rec-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px }
+.ai-rec-product-label { font-size: 9px; color: #b38559; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 4px }
+.ai-rec-product-name { font-family: 'Cormorant Garamond', serif; font-size: 28px; font-weight: 700; color: #202a3e; line-height: 1.1 }
+.ai-rec-conf-high { background: #202a3e; color: #fff; font-size: 9px; font-weight: 700; padding: 4px 12px; letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap; border-radius: 2px; margin-top: 6px }
+.ai-rec-conf-med { background: #6b7a99; color: #fff; font-size: 9px; font-weight: 700; padding: 4px 12px; letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap; border-radius: 2px; margin-top: 6px }
+.ai-rec-divider { height: 1px; background: #e2e8f0; margin: 14px 0 }
+.ai-rec-justification-block { font-size: 11px; color: #444; line-height: 1.85; border-left: 3px solid #b38559; padding-left: 16px; margin: 14px 0; font-family: 'Montserrat', sans-serif }
+.ai-rec-structure { background: #f8f6f2; border: 1px solid #e8ddd0; padding: 16px 20px; margin: 16px 0; border-radius: 6px }
+.ai-rec-structure-title { font-family: 'Cormorant Garamond', serif; font-size: 16px; font-weight: 700; color: #202a3e; margin-bottom: 2px }
+.ai-rec-structure-sublabel { font-size: 9px; color: #b38559; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 12px }
+.ai-rec-param-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 32px }
+.ai-rec-param-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid #e8ddd0 }
 .ai-rec-param-key { font-size: 10px; color: #64748b; font-weight: 500 }
-.ai-rec-param-val { font-size: 10px; color: #202a3e; font-weight: 700; font-family: 'Courier New', monospace }
-.ai-rec-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 24px }
-.ai-rec-col-title { font-size: 9px; color: #b38559; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 8px }
-.ai-rec-basket-text { font-size: 10px; color: #444; line-height: 1.75 }
+.ai-rec-param-val { font-size: 11px; color: #202a3e; font-weight: 700; font-family: 'Courier New', monospace; text-align: right }
+.ai-rec-two-col { display: grid; grid-template-columns: 1fr 1px 1fr; gap: 0 24px; margin-top: 16px }
+.ai-rec-col-divider { background: #b38559; opacity: 0.3 }
+.ai-rec-col-title { font-family: 'Cormorant Garamond', serif; font-size: 15px; font-weight: 700; color: #202a3e; margin-bottom: 10px }
+.ai-rec-basket-text { font-size: 10px; color: #444; line-height: 1.75; text-align: justify }
 .ai-rec-empty { font-size: 10px; color: #94a3b8; font-style: italic }
-.ai-rec-why-item { padding: 6px 8px; background: #f3f4f5; border-left: 2px solid #e2e8f0; margin-bottom: 5px }
-.ai-rec-why-prod { font-size: 9px; font-weight: 700; color: #202a3e; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2px }
-.ai-rec-why-reason { font-size: 9px; color: #6b7280; line-height: 1.55 }
+.ai-rec-why-item { margin-bottom: 10px; padding: 8px 10px; background: #f9f9f9; border-left: 2px solid #e2e8f0 }
+.ai-rec-why-prod { font-size: 10px; font-weight: 700; color: #202a3e; margin-bottom: 3px; display: block }
+.ai-rec-why-reason { font-size: 9px; color: #6b7280; line-height: 1.6 }
 
 @media print {
   .page { page-break-after: always }
@@ -186,34 +187,23 @@ export function buildHTMLExport(state, recommendation) {
           '<div class="bar-labels"><span>' + fmt(p?.low52) + '</span><span>52W Range</span><span>' + fmt(p?.high52) + '</span></div>' +
         '</div>' +
         '<div class="ticker-right">' +
-          (t.bullCase ? '<div class="note-block note-bull"><strong>Bull Case</strong><p>' + t.bullCase + '</p></div>' : '') +
-          (t.bearCase ? '<div class="note-block note-bear"><strong>Bear Case</strong><p>' + t.bearCase + '</p></div>' : '') +
-          (t.entryNote ? '<div class="note-block note-entry"><strong>Entry Note</strong><p>' + t.entryNote + '</p></div>' : '') +
+          (t.bullCase ? '<div class="note-block note-bull"><strong>Bull Case</strong><p>' + t.bullCase.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') + '</p></div>' : '') +
+          (t.bearCase ? '<div class="note-block note-bear"><strong>Bear Case</strong><p>' + t.bearCase.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') + '</p></div>' : '') +
+          (t.entryNote ? '<div class="note-block note-entry"><strong>Entry Note</strong><p>' + t.entryNote.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') + '</p></div>' : '') +
         '</div>' +
       '</div>'
     )
   }).join('')
 
-  const rows = state.productRows || []
-  const cardTitles = ['Product Terms', 'Structure', 'Risk Parameters', 'Return Profile']
-  const n = rows.length
-  const paramCardsHTML = n === 0 ? '' : (() => {
-    const chunkSize = Math.ceil(n / Math.min(4, n))
-    const cards = []
-    for (let i = 0; i < 4 && i * chunkSize < n; i++) {
-      const chunk = rows.slice(i * chunkSize, (i + 1) * chunkSize)
-      if (chunk.length === 0) break
-      cards.push(
-        '<div class="param-card">' +
-          '<div class="param-card-title">' + cardTitles[i] + '</div>' +
-          chunk.map(r =>
-            '<div class="param-row"><span class="param-key">' + r.key + '</span><span class="param-val">' + r.val + '</span></div>'
-          ).join('') +
-        '</div>'
-      )
-    }
-    return cards.join('')
-  })()
+  const paramCardsHTML = (state.productRows || []).length === 0 ? '' :
+    '<table style="width:100%;border-collapse:collapse">' +
+    (state.productRows || []).map((r, i) =>
+      '<tr style="background:' + (i % 2 === 0 ? '#fff' : '#f3f4f5') + '">' +
+        '<td style="padding:8px 14px;font-size:11px;color:#64748b;font-weight:500;width:45%;border-bottom:1px solid #ebebeb">' + r.key + '</td>' +
+        '<td style="padding:8px 14px;font-size:11px;color:#202a3e;font-weight:700;font-family:Courier New,monospace;border-bottom:1px solid #ebebeb">' + r.val + '</td>' +
+      '</tr>'
+    ).join('') +
+    '</table>'
 
   const gridHTML = (label, rowLabels, colLabels, grid, caps) => {
     const headerCells = colLabels.map(c => '<th>' + c + '</th>').join('')
@@ -267,14 +257,22 @@ export function buildHTMLExport(state, recommendation) {
     const r = recommendation
     const sp = r.suggestedParams || {}
     const paramLabels = {
-      tenor: 'Maturity', barrier: 'Barrier Level', couponFrequency: 'Coupon Frequency',
-      autocallFrequency: 'Autocall', protection: 'Capital Protection',
+      tenor: 'Maturity',
+      barrier: 'Barrier Level',
+      couponFrequency: 'Coupon Frequency',
+      autocallFrequency: 'Autocall',
+      protection: 'Capital Protection',
     }
 
     const confidenceText = (r.confidence ? r.confidence.toUpperCase() : 'MEDIUM') + ' CONFIDENCE'
     const confidenceClass = r.confidence === 'High' ? 'ai-rec-conf-high' : 'ai-rec-conf-med'
 
-    const paramsHTML = Object.entries(sp).map(([k, v]) =>
+    const mdBold = (str) => (str || '').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+
+    const paramEntries = Object.entries(sp)
+    const leftParams = paramEntries.filter((_, i) => i % 2 === 0)
+    const rightParams = paramEntries.filter((_, i) => i % 2 === 1)
+    const renderParams = (entries) => entries.map(([k, v]) =>
       '<div class="ai-rec-param-row">' +
         '<span class="ai-rec-param-key">' + (paramLabels[k] || k) + '</span>' +
         '<span class="ai-rec-param-val">' + v + '</span>' +
@@ -291,7 +289,7 @@ export function buildHTMLExport(state, recommendation) {
       : ''
 
     const basketHTML = state.basketDynamics
-      ? '<div class="ai-rec-basket-text">' + (state.basketDynamics || '').replace(/\n/g, '<br>') + '</div>'
+      ? '<div class="ai-rec-basket-text">' + mdBold(state.basketDynamics).replace(/\n/g, '<br>') + '</div>'
       : '<div class="ai-rec-empty">No basket dynamics available.</div>'
 
     return (
@@ -305,25 +303,23 @@ export function buildHTMLExport(state, recommendation) {
           '<span class="' + confidenceClass + '">' + confidenceText + '</span>' +
         '</div>' +
 
-        '<div class="ai-rec-divider"></div>' +
-
-        '<div class="ai-rec-justification">' + r.justification + '</div>' +
-
-        '<div class="ai-rec-divider"></div>' +
+        '<div class="ai-rec-justification-block">' + mdBold(r.justification) + '</div>' +
 
         '<div class="ai-rec-structure">' +
           '<div class="ai-rec-structure-title">Suggested Structure</div>' +
           '<div class="ai-rec-structure-sublabel">Suggested Parameters</div>' +
-          '<div class="ai-rec-param-grid">' + paramsHTML + '</div>' +
+          '<div class="ai-rec-param-grid">' +
+            '<div>' + renderParams(leftParams) + '</div>' +
+            '<div>' + renderParams(rightParams) + '</div>' +
+          '</div>' +
         '</div>' +
-
-        '<div class="ai-rec-divider"></div>' +
 
         '<div class="ai-rec-two-col">' +
           '<div>' +
             '<div class="ai-rec-col-title">Basket Dynamics</div>' +
             basketHTML +
           '</div>' +
+          '<div class="ai-rec-col-divider"></div>' +
           '<div>' +
             '<div class="ai-rec-col-title">Why Not the Others?</div>' +
             whyHTML +
@@ -333,6 +329,13 @@ export function buildHTMLExport(state, recommendation) {
       '</div>'
     )
   })() : ''
+
+  // Page 2: standalone basket dynamics only when no recommendation
+  const page2BasketHTML = !recommendation
+    ? '<div class="section"><h2>Basket Dynamics</h2><div class="thesis-block">' +
+      (state.basketDynamics || '').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>') +
+      '</div></div>'
+    : ''
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -351,7 +354,7 @@ export function buildHTMLExport(state, recommendation) {
   <div class="content">
     <div class="section">
       <h2>Investment Thesis</h2>
-      <div class="thesis-block">${(state.thesis || '').replace(/\n/g, '<br>')}</div>
+      <div class="thesis-block">${(state.thesis || '').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>')}</div>
     </div>
     <div class="section">
       <h2>Underlying Assets</h2>
@@ -364,10 +367,7 @@ export function buildHTMLExport(state, recommendation) {
 <div class="page">
   ${headerFull}
   <div class="content">
-    <div class="section">
-      <h2>Basket Dynamics</h2>
-      <div class="thesis-block">${(state.basketDynamics || '').replace(/\n/g, '<br>')}</div>
-    </div>
+    ${page2BasketHTML}
     ${recHTML}
   </div>
 </div>
@@ -378,7 +378,7 @@ export function buildHTMLExport(state, recommendation) {
   <div class="content">
     <div class="section">
       <h2>Product Parameters</h2>
-      <div class="param-grid">${paramCardsHTML}</div>
+      ${paramCardsHTML}
     </div>
   </div>
   <div class="pricing-wrap">
