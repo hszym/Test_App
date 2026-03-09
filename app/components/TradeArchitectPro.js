@@ -118,7 +118,7 @@ function downloadHTML(htmlContent, clientName) {
 
 function exportPDF(state) {
   // open a new window containing the HTML and auto-print
-  const html = buildHTMLExport(state);
+  const html = buildHTMLExport(state, rec.data);
   const printWindow = window.open('', '_blank');
   if (!printWindow) {
     alert('Popup blocked. Please allow popups for this site.');
@@ -268,21 +268,25 @@ body{background:#f3f4f5;color:#202a3e;font-family:${FONT}}
 .tap-live-quote-val{font-family:${MONO};font-size:14px;font-weight:700;color:#059669}
 .rec-btn{width:100%;padding:13px 20px;background:#b38559;color:#202a3e;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;letter-spacing:.04em;margin-top:8px;transition:opacity .2s}
 .rec-btn:hover{opacity:.88}
-.rec-product-name{font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:600;color:#202a3e;line-height:1.2;margin-bottom:8px}
-.rec-confidence-high{display:inline-block;background:#b38559;color:#fff;font-size:10px;font-weight:700;padding:3px 10px;border-radius:3px;letter-spacing:.06em;text-transform:uppercase;margin-bottom:16px}
-.rec-confidence-med{display:inline-block;background:#6b7a99;color:#fff;font-size:10px;font-weight:700;padding:3px 10px;border-radius:3px;letter-spacing:.06em;text-transform:uppercase;margin-bottom:16px}
+.rec-layout{display:flex;gap:0;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.10)}
+.rec-left{flex:0 0 60%;padding:28px 28px 24px;border-right:1px solid #b38559}
+.rec-right{flex:1;padding:28px 24px 24px;display:flex;flex-direction:column}
+@media(max-width:600px){.rec-layout{flex-direction:column}.rec-left{border-right:none;border-bottom:1px solid #b38559}}
+.rec-col-title{font-family:'Cormorant Garamond',serif;font-size:12px;font-weight:700;color:#202a3e;letter-spacing:.12em;text-transform:uppercase;margin-bottom:14px;opacity:.6}
+.rec-product-name{font-family:'Cormorant Garamond',serif;font-size:26px;font-weight:600;color:#b38559;line-height:1.2;margin-bottom:10px}
+.rec-confidence-high{display:inline-block;background:#b38559;color:#fff;font-size:10px;font-weight:700;padding:3px 10px;border-radius:3px;letter-spacing:.06em;text-transform:uppercase;margin-bottom:18px}
+.rec-confidence-med{display:inline-block;background:#6b7a99;color:#fff;font-size:10px;font-weight:700;padding:3px 10px;border-radius:3px;letter-spacing:.06em;text-transform:uppercase;margin-bottom:18px}
 .rec-justification{font-size:13px;color:#444;line-height:1.8;padding:14px 16px;background:#f9f9f9;border-left:3px solid #202a3e;margin-bottom:18px}
-.rec-section-title{font-size:10px;font-weight:700;color:#202a3e;letter-spacing:.1em;text-transform:uppercase;margin:0 0 10px;padding-bottom:6px;border-bottom:1px solid #e2e8f0}
 .rec-params{background:#fff;border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;margin-bottom:16px}
-.rec-param-row{display:flex;justify-content:space-between;padding:8px 14px;font-size:12px;border-bottom:1px solid #f5f5f5}
+.rec-param-row{display:flex;justify-content:space-between;padding:9px 14px;font-size:12px;border-bottom:1px solid #f5f5f5}
 .rec-param-row:last-child{border-bottom:none}
 .rec-param-key{color:#6b7280}
 .rec-param-val{font-weight:600;color:#202a3e;font-family:${MONO}}
-.rec-apply-btn{width:100%;padding:11px;background:#202a3e;color:#b38559;border:1px solid #b38559;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;letter-spacing:.04em;margin-bottom:16px;transition:background .15s}
-.rec-apply-btn:hover{background:#2e3c56}
-.rec-why-btn{background:none;border:none;cursor:pointer;font-size:12px;color:#b38559;font-weight:600;padding:6px 0;display:flex;align-items:center;gap:6px;width:100%;border-top:1px solid #e2e8f0;padding-top:12px}
+.rec-apply-btn{width:100%;padding:13px;background:#b38559;color:#202a3e;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;letter-spacing:.04em;margin-top:auto;transition:opacity .15s}
+.rec-apply-btn:hover{opacity:.88}
+.rec-why-btn{background:none;border:none;cursor:pointer;font-size:12px;color:#b38559;font-weight:600;padding:6px 0;display:flex;align-items:center;gap:6px;width:100%;border-top:1px solid #e2e8f0;padding-top:12px;margin-top:4px}
 .rec-why-list{margin-top:10px;display:flex;flex-direction:column;gap:6px}
-.rec-why-item{display:flex;gap:10px;padding:8px 12px;background:#f9f9f9;border-left:2px solid #e2e8f0;border-radius:0 4px 4px 0}
+.rec-why-item{display:flex;gap:10px;padding:8px 12px;background:#f9f9f9;border-left:2px solid #b38559;border-radius:0 4px 4px 0}
 .rec-why-product{font-size:10px;font-weight:700;color:#202a3e;min-width:80px;text-transform:uppercase;letter-spacing:.04em;padding-top:1px}
 .rec-why-reason{font-size:11px;color:#6b7280;line-height:1.6}
 .rec-loading{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:64px 20px;color:#6b7a99;font-size:13px;gap:16px}
@@ -348,39 +352,46 @@ function RecCard({ data, onApply }) {
     autocallFrequency: 'Autocall', protection: 'Capital Protection',
   }
   return (
-    <div>
-      <div className="rec-product-name">{data.recommended}</div>
-      <span className={data.confidence === 'High' ? 'rec-confidence-high' : 'rec-confidence-med'}>
-        {data.confidence} Confidence
-      </span>
-      <div className="rec-justification">{data.justification}</div>
-      <div className="rec-section-title">Suggested Parameters</div>
-      <div className="rec-params">
-        {Object.entries(data.suggestedParams || {}).map(([k, v]) => (
-          <div key={k} className="rec-param-row">
-            <span className="rec-param-key">{paramLabels[k] || k}</span>
-            <span className="rec-param-val">{v}</span>
-          </div>
-        ))}
+    <div className="rec-layout">
+      <div className="rec-left">
+        <div className="rec-col-title">AI Recommendation</div>
+        <div className="rec-product-name">{data.recommended}</div>
+        <div style={{ marginBottom: 18 }}>
+          <span className={data.confidence === 'High' ? 'rec-confidence-high' : 'rec-confidence-med'}>
+            {data.confidence} Confidence
+          </span>
+        </div>
+        <div className="rec-justification">{data.justification}</div>
+        {data.whyNotOthers && (
+          <>
+            <button className="rec-why-btn" onClick={() => setShowWhy(p => !p)}>
+              Why not the others? {showWhy ? '▲' : '▼'}
+            </button>
+            {showWhy && (
+              <div className="rec-why-list">
+                {Object.entries(data.whyNotOthers).map(([prod, reason]) => (
+                  <div key={prod} className="rec-why-item">
+                    <span className="rec-why-product">{prod}</span>
+                    <span className="rec-why-reason">{reason}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
       </div>
-      <button className="rec-apply-btn" onClick={onApply}>✓ Apply Parameters to Product Table</button>
-      {data.whyNotOthers && (
-        <>
-          <button className="rec-why-btn" onClick={() => setShowWhy(p => !p)}>
-            Why not the others? {showWhy ? '▲' : '▼'}
-          </button>
-          {showWhy && (
-            <div className="rec-why-list">
-              {Object.entries(data.whyNotOthers).map(([prod, reason]) => (
-                <div key={prod} className="rec-why-item">
-                  <span className="rec-why-product">{prod}</span>
-                  <span className="rec-why-reason">{reason}</span>
-                </div>
-              ))}
+      <div className="rec-right">
+        <div className="rec-col-title">Suggested Parameters</div>
+        <div className="rec-params">
+          {Object.entries(data.suggestedParams || {}).map(([k, v]) => (
+            <div key={k} className="rec-param-row">
+              <span className="rec-param-key">{paramLabels[k] || k}</span>
+              <span className="rec-param-val">{v}</span>
             </div>
-          )}
-        </>
-      )}
+          ))}
+        </div>
+        <button className="rec-apply-btn" onClick={onApply}>✓ Apply Parameters</button>
+      </div>
     </div>
   )
 }
@@ -1064,7 +1075,7 @@ Respond ONLY in this exact JSON format:
                 <div className="tap-export-card-title">Export PDF</div>
                 <div className="tap-export-card-desc">Opens print preview in new tab; save as PDF using browser dialog.</div>
               </div>
-              <div className="tap-export-card" onClick={() => setModal({ type: 'html', content: buildHTMLExport(state) })}>
+              <div className="tap-export-card" onClick={() => setModal({ type: 'html', content: buildHTMLExport(state, rec.data) })}>
                 <div className="tap-export-card-icon">📋</div>
                 <div className="tap-export-card-title">Copy HTML Source</div>
                 <div className="tap-export-card-desc">Copy the full self-contained HTML to save and print manually.</div>
@@ -1140,7 +1151,7 @@ Respond ONLY in this exact JSON format:
 
       {rec.open && (
         <div className="tap-modal-overlay" onClick={e => e.target === e.currentTarget && !rec.loading && setRec(prev => ({ ...prev, open: false }))}>
-          <div className="tap-modal" style={{ maxWidth: 600 }}>
+          <div className="tap-modal" style={{ maxWidth: 840 }}>
             <div className="tap-modal-header">
               <div className="tap-modal-title">🎯 AI Product Recommendation</div>
               {!rec.loading && <button className="tap-btn tap-btn-secondary tap-btn-sm" onClick={() => setRec(prev => ({ ...prev, open: false }))}>✕ Close</button>}

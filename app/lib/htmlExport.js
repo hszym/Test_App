@@ -114,9 +114,22 @@ h2 { font-family: 'Cormorant Garamond', serif; font-size: 19px; font-weight: 600
   .page-last { page-break-after: avoid }
   body { font-size: 10px }
 }
+.ai-rec-section { margin-bottom: 28px }
+.ai-rec-layout { display: flex; gap: 0; border: 1px solid #e2e8f0; border-top: 3px solid #b38559; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.07); page-break-inside: avoid }
+.ai-rec-left { flex: 0 0 60%; padding: 20px 22px; border-right: 1px solid #b38559 }
+.ai-rec-right { flex: 1; padding: 20px 20px }
+.ai-rec-col-label { font-size: 9px; font-weight: 700; color: #202a3e; letter-spacing: .12em; text-transform: uppercase; opacity: .55; margin-bottom: 8px }
+.ai-rec-product { font-family: 'Cormorant Garamond', serif; font-size: 18px; font-weight: 600; color: #202a3e; margin-bottom: 6px; line-height: 1.2 }
+.ai-rec-badge-high { display: inline-block; background: #b38559; color: #fff; font-size: 8px; font-weight: 700; padding: 2px 8px; border-radius: 2px; letter-spacing: .06em; text-transform: uppercase; margin-bottom: 10px }
+.ai-rec-badge-med { display: inline-block; background: #6b7a99; color: #fff; font-size: 8px; font-weight: 700; padding: 2px 8px; border-radius: 2px; letter-spacing: .06em; text-transform: uppercase; margin-bottom: 10px }
+.ai-rec-justification { font-size: 10px; color: #444; line-height: 1.75; padding: 10px 12px; background: #f9f9f9; border-left: 2px solid #202a3e; margin-bottom: 12px }
+.ai-rec-why-title { font-size: 9px; font-weight: 700; color: #202a3e; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 6px; margin-top: 10px; padding-top: 8px; border-top: 1px solid #e2e8f0 }
+.ai-rec-why-item { display: flex; gap: 8px; margin-bottom: 5px }
+.ai-rec-why-prod { font-size: 9px; font-weight: 700; color: #202a3e; min-width: 70px; text-transform: uppercase; letter-spacing: .04em; padding-top: 1px }
+.ai-rec-why-reason { font-size: 9px; color: #6b7280; line-height: 1.55; font-style: italic }
 `
 
-export function buildHTMLExport(state) {
+export function buildHTMLExport(state, recommendation) {
   const activeTickers = state.tickers.filter(t => t.symbol && t.data)
   const dateStr = new Date().toLocaleDateString('en-GB', { year: 'numeric', month: 'long', day: 'numeric' })
 
@@ -252,6 +265,36 @@ export function buildHTMLExport(state) {
   </div>
 </div>
 
+const recHTML = recommendation ? (() => {
+  const r = recommendation
+  const sp = r.suggestedParams || {}
+  const paramLabels = { tenor: 'Maturity', barrier: 'Barrier Level', couponFrequency: 'Coupon Frequency', autocallFrequency: 'Autocall', protection: 'Capital Protection' }
+  const badgeClass = r.confidence === 'High' ? 'ai-rec-badge-high' : 'ai-rec-badge-med'
+  const whyHTML = r.whyNotOthers ? Object.entries(r.whyNotOthers).map(([prod, reason]) =>
+    `<div class="ai-rec-why-item"><span class="ai-rec-why-prod">${prod}</span><span class="ai-rec-why-reason">${reason}</span></div>`
+  ).join('') : ''
+  const paramsHTML = Object.entries(sp).map(([k, v]) =>
+    `<div class="param-row"><span class="param-key">${paramLabels[k] || k}</span><span class="param-val">${v}</span></div>`
+  ).join('')
+  return `
+    <div class="ai-rec-section">
+      <h2>AI Product Recommendation</h2>
+      <div class="ai-rec-layout">
+        <div class="ai-rec-left">
+          <div class="ai-rec-col-label">Recommended Product</div>
+          <div class="ai-rec-product">${r.recommended}</div>
+          <span class="${badgeClass}">${r.confidence} Confidence</span>
+          <div class="ai-rec-justification">${r.justification}</div>
+          ${whyHTML ? '<div class="ai-rec-why-title">Why not the others?</div>' + whyHTML : ''}
+        </div>
+        <div class="ai-rec-right">
+          <div class="ai-rec-col-label">Suggested Parameters</div>
+          <div class="rec-params" style="margin-top:0">${paramsHTML}</div>
+        </div>
+      </div>
+    </div>`
+})() : ''
+
 <!-- PAGE 2: Basket Dynamics + Product Parameters -->
 <div class="page">
   ${headerFull}
@@ -260,6 +303,7 @@ export function buildHTMLExport(state) {
       <h2>Basket Dynamics</h2>
       <div class="thesis-block">${(state.basketDynamics || '').replace(/\n/g, '<br>')}</div>
     </div>
+    ${recHTML}
     <div class="section">
       <h2>Product Parameters</h2>
       <div class="param-grid">${paramCardsHTML}</div>
