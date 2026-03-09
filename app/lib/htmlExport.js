@@ -109,11 +109,6 @@ h2 { font-family: 'Cormorant Garamond', serif; font-size: 19px; font-weight: 600
 .disclaimer { font-size: 9px; color: #aaa; line-height: 1.7; font-style: italic }
 .footer-brand { font-size: 9px; color: #ccc; text-align: right; margin-top: 6px; font-weight: 500; letter-spacing: 0.04em }
 
-@media print {
-  .page { page-break-after: always }
-  .page-last { page-break-after: avoid }
-  body { font-size: 10px }
-}
 .ai-rec-section { margin-bottom: 28px }
 .ai-rec-layout { display: flex; gap: 0; border: 1px solid #e2e8f0; border-top: 3px solid #b38559; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.07); page-break-inside: avoid }
 .ai-rec-left { flex: 0 0 60%; padding: 20px 22px; border-right: 1px solid #b38559 }
@@ -127,57 +122,67 @@ h2 { font-family: 'Cormorant Garamond', serif; font-size: 19px; font-weight: 600
 .ai-rec-why-item { display: flex; gap: 8px; margin-bottom: 5px }
 .ai-rec-why-prod { font-size: 9px; font-weight: 700; color: #202a3e; min-width: 70px; text-transform: uppercase; letter-spacing: .04em; padding-top: 1px }
 .ai-rec-why-reason { font-size: 9px; color: #6b7280; line-height: 1.55; font-style: italic }
+
+@media print {
+  .page { page-break-after: always }
+  .page-last { page-break-after: avoid }
+  body { font-size: 10px }
+}
 `
 
 export function buildHTMLExport(state, recommendation) {
   const activeTickers = state.tickers.filter(t => t.symbol && t.data)
   const dateStr = new Date().toLocaleDateString('en-GB', { year: 'numeric', month: 'long', day: 'numeric' })
 
-  // Logo: base64 DataURL or text fallback
   const logoHTML = state.logoUrl
-    ? `<img class="header-logo-img" src="${state.logoUrl}" alt="logo">`
-    : `<span class="header-logo-text">${state.bankName || 'PLURIMI WEALTH'}</span>`
+    ? '<img class="header-logo-img" src="' + state.logoUrl + '" alt="logo">'
+    : '<span class="header-logo-text">' + (state.bankName || 'PLURIMI WEALTH') + '</span>'
 
-  const headerFull = `
-  <div class="doc-header">
-    ${logoHTML}
-    <div class="header-right">
-      <div class="header-type">Structured Product Pitch</div>
-      <div class="header-date">${dateStr}</div>
-    </div>
-  </div>`
+  const headerFull = (
+    '<div class="doc-header">' +
+      logoHTML +
+      '<div class="header-right">' +
+        '<div class="header-type">Structured Product Pitch</div>' +
+        '<div class="header-date">' + dateStr + '</div>' +
+      '</div>' +
+    '</div>'
+  )
 
-  const headerSm = `
-  <div class="doc-header doc-header-sm">
-    ${logoHTML}
-    <div class="header-right">
-      <div class="header-type">Structured Product Pitch</div>
-      <div class="header-date">${dateStr}</div>
-    </div>
-  </div>`
+  const headerSm = (
+    '<div class="doc-header doc-header-sm">' +
+      logoHTML +
+      '<div class="header-right">' +
+        '<div class="header-type">Structured Product Pitch</div>' +
+        '<div class="header-date">' + dateStr + '</div>' +
+      '</div>' +
+    '</div>'
+  )
 
   const tickerRowsHTML = activeTickers.map(t => {
     const p = t.data
     const pct = pos52w(p?.price, p?.low52, p?.high52)
-    return `
-    <div class="ticker-row">
-      <div class="ticker-left">
-        <div>
-          <span class="ticker-symbol">${t.symbol}</span>
-          ${t.currency ? `<span class="ticker-cur">${t.currency}</span>` : ''}
-        </div>
-        <div class="ticker-price">${fmt(p?.price)}</div>
-        <div class="ticker-chg ${(p?.change ?? 0) >= 0 ? 'pos' : 'neg'}">${(p?.change ?? 0) >= 0 ? '\u25b2' : '\u25bc'} ${fmt(Math.abs(p?.change ?? 0))}%</div>
-        <div class="ticker-iv">IV: ${fmt(p?.iv)}%</div>
-        <div class="bar-wrap"><div class="bar-dot" style="left:${pct}%"></div></div>
-        <div class="bar-labels"><span>${fmt(p?.low52)}</span><span>52W Range</span><span>${fmt(p?.high52)}</span></div>
-      </div>
-      <div class="ticker-right">
-        ${t.bullCase ? `<div class="note-block note-bull"><strong>Bull Case</strong><p>${t.bullCase}</p></div>` : ''}
-        ${t.bearCase ? `<div class="note-block note-bear"><strong>Bear Case</strong><p>${t.bearCase}</p></div>` : ''}
-        ${t.entryNote ? `<div class="note-block note-entry"><strong>Entry Note</strong><p>${t.entryNote}</p></div>` : ''}
-      </div>
-    </div>`
+    const chgClass = (p?.change ?? 0) >= 0 ? 'pos' : 'neg'
+    const chgArrow = (p?.change ?? 0) >= 0 ? '\u25b2' : '\u25bc'
+    return (
+      '<div class="ticker-row">' +
+        '<div class="ticker-left">' +
+          '<div>' +
+            '<span class="ticker-symbol">' + t.symbol + '</span>' +
+            (t.currency ? '<span class="ticker-cur">' + t.currency + '</span>' : '') +
+          '</div>' +
+          '<div class="ticker-price">' + fmt(p?.price) + '</div>' +
+          '<div class="ticker-chg ' + chgClass + '">' + chgArrow + ' ' + fmt(Math.abs(p?.change ?? 0)) + '%</div>' +
+          '<div class="ticker-iv">IV: ' + fmt(p?.iv) + '%</div>' +
+          '<div class="bar-wrap"><div class="bar-dot" style="left:' + pct + '%"></div></div>' +
+          '<div class="bar-labels"><span>' + fmt(p?.low52) + '</span><span>52W Range</span><span>' + fmt(p?.high52) + '</span></div>' +
+        '</div>' +
+        '<div class="ticker-right">' +
+          (t.bullCase ? '<div class="note-block note-bull"><strong>Bull Case</strong><p>' + t.bullCase + '</p></div>' : '') +
+          (t.bearCase ? '<div class="note-block note-bear"><strong>Bear Case</strong><p>' + t.bearCase + '</p></div>' : '') +
+          (t.entryNote ? '<div class="note-block note-entry"><strong>Entry Note</strong><p>' + t.entryNote + '</p></div>' : '') +
+        '</div>' +
+      '</div>'
+    )
   }).join('')
 
   const rows = state.productRows || []
@@ -189,55 +194,108 @@ export function buildHTMLExport(state, recommendation) {
     for (let i = 0; i < 4 && i * chunkSize < n; i++) {
       const chunk = rows.slice(i * chunkSize, (i + 1) * chunkSize)
       if (chunk.length === 0) break
-      cards.push(`
-    <div class="param-card">
-      <div class="param-card-title">${cardTitles[i]}</div>
-      ${chunk.map(r => `<div class="param-row"><span class="param-key">${r.key}</span><span class="param-val">${r.val}</span></div>`).join('')}
-    </div>`)
+      cards.push(
+        '<div class="param-card">' +
+          '<div class="param-card-title">' + cardTitles[i] + '</div>' +
+          chunk.map(r =>
+            '<div class="param-row"><span class="param-key">' + r.key + '</span><span class="param-val">' + r.val + '</span></div>'
+          ).join('') +
+        '</div>'
+      )
     }
     return cards.join('')
   })()
 
   const gridHTML = (label, rowLabels, colLabels, grid, caps) => {
-    const headerCells = colLabels.map(c => `<th>${c}</th>`).join('')
+    const headerCells = colLabels.map(c => '<th>' + c + '</th>').join('')
     const bodyRows = rowLabels.map((r, ri) =>
-      `<tr><td class="row-label">${r}</td>` +
+      '<tr><td class="row-label">' + r + '</td>' +
       colLabels.map((c, ci) =>
-        `<td>${grid?.[ri]?.[ci] || '\u2014'}${caps ? `<span class="cap-note">Cap ${caps[c]}</span>` : ''}</td>`
+        '<td>' + (grid?.[ri]?.[ci] || '\u2014') + (caps ? '<span class="cap-note">Cap ' + caps[c] + '</span>' : '') + '</td>'
       ).join('') +
       '</tr>'
     ).join('')
-    return `<table class="pg-table"><thead><tr><th class="label-head">${label}</th>${headerCells}</tr></thead><tbody>${bodyRows}</tbody></table>`
+    return (
+      '<table class="pg-table">' +
+        '<thead><tr><th class="label-head">' + label + '</th>' + headerCells + '</tr></thead>' +
+        '<tbody>' + bodyRows + '</tbody>' +
+      '</table>'
+    )
   }
 
   const payoffInfo = {
-    rc:       { badge: 'Autocall Reverse Convertible',           desc: 'Guaranteed coupon paid quarterly. Autocall at 100% quarterly from month 6. Capital at risk below the strike.' },
-    snowball: { badge: 'Autocall Snowball',               desc: 'Memory coupon accumulates if not paid. Autocall at 100% from month 6. Barrier observed at maturity, Strike 100%.' },
-    bonus:    { badge: 'Bonus Capped',           desc: 'If the underlying ends up above the barrier you get the bonus or the return up to cap level. Full downside if barrier is breached.' },
-    cpn:      { badge: 'Capital Protected Note', desc: 'Capital protected at maturity. You get the leveraged return of the worst performing stock, uncapped.' },
+    rc:       { badge: 'Autocall Reverse Convertible', desc: 'Guaranteed coupon paid quarterly. Autocall at 100% quarterly from month 6. Capital at risk below the strike.' },
+    snowball: { badge: 'Autocall Snowball',             desc: 'Memory coupon accumulates if not paid. Autocall at 100% from month 6. Barrier observed at maturity, Strike 100%.' },
+    bonus:    { badge: 'Bonus Capped',                  desc: 'If the underlying ends up above the barrier you get the bonus or the return up to cap level. Full downside if barrier is breached.' },
+    cpn:      { badge: 'Capital Protected Note',        desc: 'Capital protected at maturity. You get the leveraged return of the worst performing stock, uncapped.' },
   }
 
   const gridDefs = {
     rc:       { label: 'Strike',         rows: RC_STRIKES,       title: 'Autocall Reverse Convertible' },
     snowball: { label: 'Barrier/Coupon', rows: SNOWBALL_BARRIERS, title: 'Snowball' },
-    bonus:    { label: 'Barrier',         rows: BONUS_BARRIERS,   title: 'Bonus Note', caps: BONUS_CAPS },
-    cpn:      { label: 'Protection',      rows: CPN_PROTECTIONS,  title: 'Capital Protected Note' },
+    bonus:    { label: 'Barrier',        rows: BONUS_BARRIERS,   title: 'Bonus Note', caps: BONUS_CAPS },
+    cpn:      { label: 'Protection',     rows: CPN_PROTECTIONS,  title: 'Capital Protected Note' },
   }
 
   const activeKeys = ['rc', 'snowball', 'bonus', 'cpn'].filter(k => state.showGrids[k])
   const activeCount = activeKeys.length
   const gridWrapClass = 'pricing-grid-wrap count-' + activeCount
   const pricingHTML = activeKeys.map(k => {
-      const def = gridDefs[k]
-      const po = payoffInfo[k]
-      return `
-    <div class="pricing-block">
-      <span class="payoff-badge">${po.badge}</span>
-      <div class="payoff-desc">${po.desc}</div>
-      <div class="pricing-title">${def.title} <span class="currency-tag">${state.pricingCurrency}</span></div>
-      ${gridHTML(def.label, def.rows, TENORS, state.pricingGrids[k], def.caps)}
-    </div>`
-    }).join('')
+    const def = gridDefs[k]
+    const po = payoffInfo[k]
+    return (
+      '<div class="pricing-block">' +
+        '<span class="payoff-badge">' + po.badge + '</span>' +
+        '<div class="payoff-desc">' + po.desc + '</div>' +
+        '<div class="pricing-title">' + def.title + ' <span class="currency-tag">' + state.pricingCurrency + '</span></div>' +
+        gridHTML(def.label, def.rows, TENORS, state.pricingGrids[k], def.caps) +
+      '</div>'
+    )
+  }).join('')
+
+  // Build recommendation section before the return statement
+  const recHTML = recommendation ? (() => {
+    const r = recommendation
+    const sp = r.suggestedParams || {}
+    const paramLabels = {
+      tenor: 'Maturity', barrier: 'Barrier Level', couponFrequency: 'Coupon Frequency',
+      autocallFrequency: 'Autocall', protection: 'Capital Protection',
+    }
+    const badgeClass = r.confidence === 'High' ? 'ai-rec-badge-high' : 'ai-rec-badge-med'
+    const whyHTML = r.whyNotOthers
+      ? '<div class="ai-rec-why-title">Why not the others?</div>' +
+        Object.entries(r.whyNotOthers).map(([prod, reason]) =>
+          '<div class="ai-rec-why-item">' +
+            '<span class="ai-rec-why-prod">' + prod + '</span>' +
+            '<span class="ai-rec-why-reason">' + reason + '</span>' +
+          '</div>'
+        ).join('')
+      : ''
+    const paramsHTML = Object.entries(sp).map(([k, v]) =>
+      '<div class="param-row">' +
+        '<span class="param-key">' + (paramLabels[k] || k) + '</span>' +
+        '<span class="param-val">' + v + '</span>' +
+      '</div>'
+    ).join('')
+    return (
+      '<div class="ai-rec-section">' +
+        '<h2>AI Product Recommendation</h2>' +
+        '<div class="ai-rec-layout">' +
+          '<div class="ai-rec-left">' +
+            '<div class="ai-rec-col-label">Recommended Product</div>' +
+            '<div class="ai-rec-product">' + r.recommended + '</div>' +
+            '<span class="' + badgeClass + '">' + r.confidence + ' Confidence</span>' +
+            '<div class="ai-rec-justification">' + r.justification + '</div>' +
+            whyHTML +
+          '</div>' +
+          '<div class="ai-rec-right">' +
+            '<div class="ai-rec-col-label">Suggested Parameters</div>' +
+            '<div style="margin-top:0">' + paramsHTML + '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>'
+    )
+  })() : ''
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -265,37 +323,7 @@ export function buildHTMLExport(state, recommendation) {
   </div>
 </div>
 
-const recHTML = recommendation ? (() => {
-  const r = recommendation
-  const sp = r.suggestedParams || {}
-  const paramLabels = { tenor: 'Maturity', barrier: 'Barrier Level', couponFrequency: 'Coupon Frequency', autocallFrequency: 'Autocall', protection: 'Capital Protection' }
-  const badgeClass = r.confidence === 'High' ? 'ai-rec-badge-high' : 'ai-rec-badge-med'
-  const whyHTML = r.whyNotOthers ? Object.entries(r.whyNotOthers).map(([prod, reason]) =>
-    `<div class="ai-rec-why-item"><span class="ai-rec-why-prod">${prod}</span><span class="ai-rec-why-reason">${reason}</span></div>`
-  ).join('') : ''
-  const paramsHTML = Object.entries(sp).map(([k, v]) =>
-    `<div class="param-row"><span class="param-key">${paramLabels[k] || k}</span><span class="param-val">${v}</span></div>`
-  ).join('')
-  return `
-    <div class="ai-rec-section">
-      <h2>AI Product Recommendation</h2>
-      <div class="ai-rec-layout">
-        <div class="ai-rec-left">
-          <div class="ai-rec-col-label">Recommended Product</div>
-          <div class="ai-rec-product">${r.recommended}</div>
-          <span class="${badgeClass}">${r.confidence} Confidence</span>
-          <div class="ai-rec-justification">${r.justification}</div>
-          ${whyHTML ? '<div class="ai-rec-why-title">Why not the others?</div>' + whyHTML : ''}
-        </div>
-        <div class="ai-rec-right">
-          <div class="ai-rec-col-label">Suggested Parameters</div>
-          <div class="rec-params" style="margin-top:0">${paramsHTML}</div>
-        </div>
-      </div>
-    </div>`
-})() : ''
-
-<!-- PAGE 2: Basket Dynamics + Product Parameters -->
+<!-- PAGE 2: Basket Dynamics + AI Recommendation + Product Parameters -->
 <div class="page">
   ${headerFull}
   <div class="content">
