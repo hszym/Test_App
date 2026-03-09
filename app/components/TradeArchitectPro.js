@@ -73,52 +73,6 @@ async function callClaude(prompt, noWebSearch = false) {
   return data.text || ''
 }
 
-// ─── DIRECT SG MARKETS CLIENT (implicit-flow token from browser) ─────────────
-const SG_PRODUCT_CONFIG = {
-  rc:       { productType: 'ReverseConvertible', productSubtype: 'BarrierReverseConvertible', solvingMode: 'RecallCoupon', wrapper: 'Note' },
-  snowball: { productType: 'Autocall',            productSubtype: 'Phoenix',                  solvingMode: 'RecallCoupon', wrapper: 'Note' },
-  bonus:    { productType: 'Participation',       productSubtype: 'BonusCertificate',         solvingMode: 'Bonus',        wrapper: 'Note' },
-  cpn:      { productType: 'Participation',       productSubtype: 'CUOSingle',                solvingMode: 'CapLevel',     wrapper: 'Note' },
-}
-
-async function callSGPriceDirect(productKey, { underlyings, maturityMonths, barrier, currency }, token) {
-  const config = SG_PRODUCT_CONFIG[productKey]
-  if (!config) throw new Error(`Unknown product type: ${productKey}`)
-  const quotePayload = {
-    variationParameters: {
-      ...config,
-      underlying: underlyings.map(sym => ({ id: `${sym} UW`, idType: 'Bloomberg' })),
-      maturityValue: { currentValue: { value: maturityMonths, unit: 'Month' } },
-      currency, notionalAmount: 1000000, strike: 100, kiBarrier: barrier,
-      recallThreshold: 100, couponFrequency: 'FourPerYear', recallStartPeriod: 1,
-    },
-  }
-  const quoteRes = await fetch('https://sp-api.sgmarkets.com/api/v1/quotes', {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify(quotePayload),
-  })
-  const quoteText = await quoteRes.text()
-  if (!quoteRes.ok) throw new Error(`SG quote failed (${quoteRes.status}): ${quoteText}`)
-  const { QuoteId } = JSON.parse(quoteText)
-  if (!QuoteId) throw new Error('SG did not return a QuoteId')
-  for (let attempt = 0; attempt < 10; attempt++) {
-    await new Promise(r => setTimeout(r, 2000))
-    const pollRes = await fetch(`https://sp-api.sgmarkets.com/api/v1/quote/${QuoteId}`, {
-      headers: { 'Authorization': `Bearer ${token}` },
-    })
-    if (!pollRes.ok) continue
-    const quote = await pollRes.json()
-    if (quote.Status === 'Quoted') {
-      const value = quote.SolvedValue ?? quote.RecallCoupon ?? quote.Bonus ?? quote.CapLevel ?? quote.Value ?? null
-      if (value === null) throw new Error('SG returned Quoted status but no solved value field')
-      return value
-    }
-    if (['Error', 'Failed', 'Rejected'].includes(quote.Status))
-      throw new Error(`SG quote ${quote.Status}: ${quote.ErrorMessage || 'no details'}`)
-  }
-  throw new Error('SG quote timed out after 20 seconds')
-}
 
 function pos52w(price, low, high) {
   if (!price || !low || !high || high === low) return 50
@@ -647,12 +601,25 @@ Respond ONLY in this exact JSON format:
     const barrierPct = parseFloat((barrierRow?.val || '70%').replace('%', '').trim())
     const barrier = isNaN(barrierPct) ? 0.70 : barrierPct / 100
     try {
-      const value = await callSGPriceDirect(
-        productKey,
-        { underlyings: activeSymbols, maturityMonths, barrier, currency: state.pricingCurrency },
-        state.sgToken
-      )
-      const pct = typeof value === 'number' ? (value * 100).toFixed(2) + '% p.a.' : String(value)
+      const variationParams = {
+        underlying: activeSymbols.map(sym => ({ id: `${sym} UW`, idType: 'Bloomberg' })),
+        maturityValue: { currentValue: { value: maturityMonths, unit: 'Month' } },
+        currency: state.pricingCurrency,
+        notionalAmount: 1000000,
+        strike: 100,
+        kiBarrier: barrier,
+        recallThreshold: 100,
+        couponFrequency: 'FourPerYear',
+        recallStartPeriod: 1,
+      }
+      const response = await fetch('/api/sg-price', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productType: productKey, params: variationParams, sgToken: state.sgToken }),
+      })
+      const data = await response.json()
+      if (!response.ok || data.error) throw new Error(data.error || `Server error ${response.status}`)
+      const pct = typeof data.value === 'number' ? (data.value * 100).toFixed(2) + '% p.a.' : String(data.value)
       setSgLivePrices(prev => ({ ...prev, [productKey]: pct }))
       showToast('Live price received: ' + pct)
     } catch (err) {
