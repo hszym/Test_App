@@ -9,6 +9,14 @@ const PRODUCT_CONFIG = {
   cpn:      { productType: 'Participation',       productSubtype: 'CUOSingle',                solvingMode: 'CapLevel',     wrapper: 'Note' },
 }
 
+const safeJson = async (response) => {
+  const text = await response.text()
+  console.log('SG raw response:', response.status, text.slice(0, 500))
+  if (!text || text.trim() === '') return {}
+  try { return JSON.parse(text) }
+  catch { return { _raw: text } }
+}
+
 export async function POST(request) {
   const { productType, params, sgToken } = await request.json()
 
@@ -32,8 +40,7 @@ export async function POST(request) {
     body: JSON.stringify({ variationParameters: { ...config, ...params } }),
   })
 
-  const quoteData = await quoteRes.json()
-  console.log('SG quote response:', quoteRes.status, JSON.stringify(quoteData))
+  const quoteData = await safeJson(quoteRes)
 
   if (!quoteRes.ok) {
     return NextResponse.json({
@@ -50,8 +57,7 @@ export async function POST(request) {
   for (let i = 0; i < 10; i++) {
     await new Promise(r => setTimeout(r, 2000))
     const resultRes = await fetch(`${SG_BASE}/api/v1/quote/${quoteId}`, { headers })
-    const result = await resultRes.json()
-    console.log(`Poll ${i + 1}:`, result.Status, JSON.stringify(result).slice(0, 200))
+    const result = await safeJson(resultRes)
 
     if (result.Status === 'Quoted') {
       const value = result.SolvedValue ?? result.RecallCoupon ?? result.Bonus ?? result.CapLevel ?? result.Value ?? null
