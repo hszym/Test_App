@@ -443,25 +443,7 @@ export default function TradeArchitectPro() {
     }
   }, [state])
 
-  // SG Markets OAuth2: receive token via postMessage from the redirect page
-  useEffect(() => {
-    const handleMessage = (event) => {
-      if (event.origin !== 'https://sgme-sp-api.azureedge.net') return
-      const data = event.data
-      if (typeof data === 'string' && data.includes('access_token')) {
-        const params = new URLSearchParams(data.replace(/^.*#/, ''))
-        const token = params.get('access_token')
-        const expiresIn = params.get('expires_in')
-        if (token) {
-          const expiry = Date.now() + parseInt(expiresIn || '600') * 1000
-          setState(prev => ({ ...prev, sgToken: token, sgTokenExpiry: expiry }))
-          showToast('SG Markets connected ✓')
-        }
-      }
-    }
-    window.addEventListener('message', handleMessage)
-    return () => window.removeEventListener('message', handleMessage)
-  }, [])
+
 
   const set = useCallback((updater) => setState(prev => {
     const next = typeof updater === 'function' ? updater(prev) : updater
@@ -711,17 +693,41 @@ Respond ONLY in this exact JSON format:
               const minsLeft = connected ? Math.max(0, Math.round((state.sgTokenExpiry - Date.now()) / 60000)) : 0
 
               const connectSG = () => {
-                window.open(
-                  'https://sso.sgmarkets.com/sgconnect/oauth2/authorize?' + new URLSearchParams({
-                    response_type: 'token',
-                    client_id: '9da710fa-a553-476e-88eb-36383c8da680',
-                    redirect_uri: 'https://sgme-sp-api.azureedge.net/oauth2-redirect.html',
-                    scope: 'api.sgmarkets-execution-structured-products.v1',
-                    nonce: 'faeafaeafaeaf',
-                  }),
+                const params = new URLSearchParams({
+                  response_type: 'token',
+                  client_id: '9da710fa-a553-476e-88eb-36383c8da680',
+                  redirect_uri: 'https://sgme-sp-api.azureedge.net/oauth2-redirect.html',
+                  scope: 'api.sgmarkets-execution-structured-products.v1',
+                  nonce: 'faeafaeafaeaf'
+                })
+
+                const popup = window.open(
+                  `https://sso.sgmarkets.com/sgconnect/oauth2/authorize?${params}`,
                   'sg-auth',
                   'width=600,height=700'
                 )
+
+                const pollTimer = setInterval(() => {
+                  try {
+                    const url = popup.location.href
+                    if (url.includes('access_token')) {
+                      clearInterval(pollTimer)
+                      const hash = url.split('#')[1]
+                      const p = new URLSearchParams(hash)
+                      const token = p.get('access_token')
+                      const expiresIn = p.get('expires_in')
+                      if (token) {
+                        const expiry = Date.now() + parseInt(expiresIn || '600') * 1000
+                        setState(prev => ({ ...prev, sgToken: token, sgTokenExpiry: expiry }))
+                        showToast('SG Markets connected ✓')
+                        popup.close()
+                      }
+                    }
+                  } catch (e) {
+                    // Still on cross-origin SG login page — keep polling
+                  }
+                  if (popup.closed) clearInterval(pollTimer)
+                }, 300)
               }
 
               return (
