@@ -568,6 +568,14 @@ Respond ONLY in this exact JSON format:
   const fetchSGPrice = useCallback(async (productKey) => {
     const activeSymbols = state.tickers.filter(t => t.symbol).map(t => t.symbol)
     if (activeSymbols.length === 0) { showToast('Add tickers first'); return }
+
+    const tokenValid = state.sgToken && state.sgTokenExpiry && Date.now() < state.sgTokenExpiry
+    if (!tokenValid) {
+      showToast('Please connect SG Markets first')
+      set({ step: 1 })
+      return
+    }
+
     setSgLoading(prev => ({ ...prev, [productKey]: true }))
     const maturityRow = state.productRows.find(r => r.key.toLowerCase().includes('maturity'))
     const maturityMonths = parseInt(maturityRow?.val) || 24
@@ -575,14 +583,12 @@ Respond ONLY in this exact JSON format:
     const barrierPct = parseFloat((barrierRow?.val || '70%').replace('%', '').trim())
     const barrier = isNaN(barrierPct) ? 0.70 : barrierPct / 100
     try {
-      const res = await fetch('/api/sg-price', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ productType: productKey, underlyings: activeSymbols, maturityMonths, barrier, currency: state.pricingCurrency }),
-      })
-      const data = await res.json()
-      if (data.error) throw new Error(data.error)
-      const pct = typeof data.value === 'number' ? (data.value * 100).toFixed(2) + '% p.a.' : String(data.value)
+      const value = await callSGPriceDirect(
+        productKey,
+        { underlyings: activeSymbols, maturityMonths, barrier, currency: state.pricingCurrency },
+        state.sgToken
+      )
+      const pct = typeof value === 'number' ? (value * 100).toFixed(2) + '% p.a.' : String(value)
       setSgLivePrices(prev => ({ ...prev, [productKey]: pct }))
       showToast('Live price received: ' + pct)
     } catch (err) {
