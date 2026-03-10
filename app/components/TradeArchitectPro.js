@@ -339,7 +339,7 @@ function TickerAutocomplete({ value, onSymbolChange, onSelect }) {
     setShowDropdown(false)
     setResults([])
     setActiveIdx(-1)
-    onSelect(item.symbol)
+    onSelect(item.symbol, item.name)
   }
 
   const handleKeyDown = (e) => {
@@ -495,12 +495,13 @@ export default function TradeArchitectPro() {
     } else { fallbackCopy(text, type) }
   }
 
-  const fetchTicker = useCallback(async (idx, symOverride) => {
+  const fetchTicker = useCallback(async (idx, symOverride, nameHint) => {
     const sym = symOverride || state.tickers[idx]?.symbol
     if (!sym) return
     setState(prev => { const t = [...prev.tickers]; t[idx] = { ...t[idx], symbol: sym, loading: true, data: null }; return { ...prev, tickers: t } })
     try {
       const data = await fetchMarketData(sym)
+      if (!data.name && nameHint) data.name = nameHint
       setState(prev => { const t = [...prev.tickers]; t[idx] = { ...t[idx], loading: false, data }; return { ...prev, tickers: t } })
     } catch {
       setState(prev => { const t = [...prev.tickers]; t[idx] = { ...t[idx], loading: false }; return { ...prev, tickers: t } })
@@ -845,7 +846,7 @@ Respond ONLY in this exact JSON format:
                       <TickerAutocomplete
                         value={t.symbol}
                         onSymbolChange={val => setState(prev => { const tickers = [...prev.tickers]; tickers[i] = { ...tickers[i], symbol: val }; return { ...prev, tickers } })}
-                        onSelect={sym => fetchTicker(i, sym)}
+                        onSelect={(sym, name) => fetchTicker(i, sym, name)}
                       />
                     </div>
                     <button className="tap-fetch-btn" onClick={() => fetchTicker(i)} disabled={!t.symbol || t.loading}>
