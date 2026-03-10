@@ -85,20 +85,16 @@ function fmt(n, dec = 2) {
   return Number(n).toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec })
 }
 
-function cleanText(text) {
+const cleanText = (text) => {
   if (!text) return ''
   return text
     .replace(/^#{1,3}\s+/gm, '')
     .replace(/\*\*(.*?)\*\*/g, '$1')
     .replace(/\*(.*?)\*/g, '$1')
     .replace(/^[-•]\s+/gm, '')
-    .replace(/
-{3,}/g, '
-
-')
+    .replace(/\n\n\n+/g, '\n\n')
     .trim()
 }
-
 async function fetchMarketData(symbol) {
   try {
     const res = await fetch('/api/market-data', {
