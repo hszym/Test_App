@@ -2,7 +2,7 @@
 
 const RC_STRIKES = ['50%', '60%', '70%', '80%']
 const TENORS = ['12M', '18M', '24M', '36M']
-const SNOWBALL_BARRIERS = ['50/5%', '60/6%', '70/7%', '80/8%']
+const SNOWBALL_BARRIERS = ['50%/5%', '60%/6%', '70%/7%', '80%/8%']
 const BONUS_BARRIERS = ['50%', '60%', '70%', '80%']
 const BONUS_CAPS = { '12M': '125%', '18M': '137.5%', '24M': '150%', '36M': '175%' }
 const CPN_PROTECTIONS = ['85%', '90%', '95%', '100%']
@@ -248,9 +248,9 @@ export function buildHTMLExport(state, recommendation) {
 
   const payoffInfo = {
     rc:       { badge: 'Autocall Reverse Convertible', desc: 'Guaranteed coupon paid quarterly. Autocall at 100% quarterly from month 6. Capital at risk below the strike.' },
-    snowball: { badge: 'Autocall Snowball',             desc: 'Memory coupon accumulates if not paid. Autocall at 100% from month 6. Barrier observed at maturity, Strike 100%.' },
-    bonus:    { badge: 'Bonus Capped',                  desc: 'If the underlying ends up above the barrier you get the bonus or the return up to cap level. Full downside if barrier is breached.' },
-    cpn:      { badge: 'Capital Protected Note',        desc: 'Capital protected at maturity. You get the leveraged return of the worst performing stock, uncapped.' },
+    snowball: { badge: 'Autocall Snowball',             desc: 'Memory coupon accumulates if not paid. Autocall at 100% from quarterly from month 6. Barrier observed at maturity, Strike 100%.' },
+    bonus:    { badge: 'Bonus Capped',                  desc: 'Investor get the bonus or the return on the worst performing stock up to cap level. Full downside if barrier is breached.' },
+    cpn:      { badge: 'Capital Protected Note',        desc: 'Capital is protected at maturity. Investor gets the leveraged participation of the worst performing stock, uncapped.' },
   }
 
   const gridDefs = {
