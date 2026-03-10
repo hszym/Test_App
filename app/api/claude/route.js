@@ -44,10 +44,14 @@ export async function POST(request) {
       createParams.tools = [{ type: 'web_search_20250305', name: 'web_search' }]
     }
     const resp = await client.messages.create(createParams)
-    const text = resp.content
-      .filter(block => block.type === 'text')
-      .map(block => block.text)
-      .join('\n')
+    const textBlocks = resp.content
+      .filter(item => item.type === 'text')
+      .map(item => item.text.trim())
+      .filter(Boolean)
+    const rawText = textBlocks.join(' ')
+    const text = rawText
+      .replace(/\s+/g, ' ')
+      .replace(/\s+([,.])/g, '$1')
       .trim()
     return NextResponse.json({ text })
   } catch (error) {
