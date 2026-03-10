@@ -6,12 +6,15 @@ export async function POST(request) {
   const { symbol } = await request.json()
 
   try {
-    const [quote, quoteSummary, optionsData] = await Promise.all([
+    const [quote, quoteSummary, historicalData] = await Promise.all([
       yahooFinance.quote(symbol),
       yahooFinance.quoteSummary(symbol, {
         modules: ['summaryDetail', 'financialData', 'recommendationTrend']
       }),
-      yahooFinance.options(symbol).catch(() => null)
+      yahooFinance.historical(symbol, {
+        period1: new Date(Date.now() - 40 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        interval: '1d'
+      }).catch(() => null)
     ])
 
     const trend = quoteSummary?.recommendationTrend?.trend?.[0]
@@ -44,15 +47,16 @@ export async function POST(request) {
       analystSell: bearish,
       name: quote.longName || quote.shortName || quote.displayName || symbol,
       iv: (() => {
-        if (!optionsData?.options?.[0]) return null
-        const currentPrice = quote.regularMarketPrice
-        const chain = [...(optionsData.options[0].calls || []), ...(optionsData.options[0].puts || [])]
-          .filter(o => o.impliedVolatility != null)
-        if (!chain.length) return null
-        const atm = chain.reduce((best, opt) =>
-          Math.abs(opt.strike - currentPrice) < Math.abs(best.strike - currentPrice) ? opt : best
-        )
-        return atm?.impliedVolatility ? Math.round(atm.impliedVolatility * 100 * 10) / 10 : null
+        if (!historicalData || historicalData.length < 2) return null
+        const prices = historicalData.slice(-31).map(d => d.close).filter(Boolean)
+        if (prices.length < 2) return null
+        const returns = []
+        for (let i = 1; i < prices.length; i++) {
+          returns.push(Math.log(prices[i] / prices[i - 1]))
+        }
+        const mean = returns.reduce((a, b) => a + b, 0) / returns.length
+        const variance = returns.reduce((s, r) => s + (r - mean) ** 2, 0) / (returns.length - 1)
+        return Math.round(Math.sqrt(variance * 252) * 100 * 10) / 10
       })(),
       live: true,
     })
