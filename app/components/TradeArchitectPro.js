@@ -861,6 +861,8 @@ Respond ONLY in this exact JSON format:
                         <div className={`tap-mdata-chip ${t.data.change >= 0 ? 'pos' : 'neg'}`}>{t.data.change >= 0 ? '▲' : '▼'} {fmt(Math.abs(t.data.change))}%</div>
                         <div className="tap-mdata-chip">52W <span className="chip-val">{fmt(t.data.low52)} – {fmt(t.data.high52)}</span></div>
                         <div className="tap-mdata-chip">IV <span className="chip-val">{fmt(t.data.iv)}%</span></div>
+                        {t.data.analystRating && <div className="tap-mdata-chip">Analyst <span className="chip-val">{t.data.analystRating}</span></div>}
+                        {t.data.analystTarget && <div className="tap-mdata-chip">Target <span className="chip-val">${fmt(t.data.analystTarget)}</span></div>}
                       </div>
                     </>
                   )}
