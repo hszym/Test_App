@@ -17,6 +17,16 @@ function fmt(n, dec = 2) {
   return Number(n).toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec })
 }
 
+function cleanText(text) {
+  if (!text) return ''
+  return text
+    .replace(/^#{1,3}\s+/gm, '')
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g, '$1')
+    .replace(/^[-•]\s+/gm, '')
+    .trim()
+}
+
 function asciiTable(title, rowLabels, colLabels, grid) {
   const colW = 10, rowW = 16
   const sep = '+' + '-'.repeat(rowW) + colLabels.map(() => '+' + '-'.repeat(colW)).join('') + '+'
@@ -185,21 +195,31 @@ export function buildHTMLExport(state, recommendation) {
           '<div class="ticker-chg ' + chgClass + '">' + chgArrow + ' ' + fmt(Math.abs(p?.change ?? 0)) + '%</div>' +
           '<div class="ticker-iv">IV: ' + fmt(p?.iv) + '%</div>' +
           (p?.analystTarget ? (() => {
-            const upside = p.price ? ((p.analystTarget / p.price - 1) * 100) : null
-            const upsideStr = upside != null ? (upside >= 0 ? '+' : '') + upside.toFixed(1) + '%' : ''
-            const upsideColor = upside != null && upside >= 0 ? '#059669' : '#dc2626'
-            return '<div style="margin-top:5px;display:flex;align-items:center;gap:6px">' +
-              '<span style="font-size:9px;font-weight:700;color:#fff;background:#202a3e;padding:2px 7px;border-radius:2px;letter-spacing:0.04em">Target $' + fmt(p.analystTarget) + '</span>' +
-              (upsideStr ? '<span style="font-size:9px;font-weight:700;color:' + upsideColor + '">' + upsideStr + '</span>' : '') +
+            const upside = (p.analystTarget - p.price) / p.price
+            const ratingBg = p?.analystRating === 'Buy' ? '#059669' : p?.analystRating === 'Sell' ? '#dc2626' : '#6b7a99'
+            const totalAnalysts = (p?.analystBuy || 0) + (p?.analystHold || 0) + (p?.analystSell || 0)
+            return '<div style="margin-top:8px">' +
+              (p?.analystRating ?
+                '<div style="margin-bottom:4px">' +
+                  '<span style="font-size:9px;font-weight:700;color:#fff;padding:2px 7px;border-radius:3px;background:' + ratingBg + '">' + p.analystRating + '</span>' +
+                  '<span style="font-size:9px;color:#888;margin-left:6px">consensus (' + totalAnalysts + ' analysts)</span>' +
+                '</div>'
+              : '') +
+              '<div style="display:flex;align-items:center;gap:8px">' +
+                '<span style="font-size:9px;font-weight:700;color:#fff;background:#202a3e;padding:2px 7px;border-radius:3px">PT: $' + fmt(p.analystTarget) + '</span>' +
+                '<span style="font-size:9px;font-weight:600;color:' + (upside >= 0 ? '#059669' : '#dc2626') + '">' +
+                  (upside >= 0 ? '▲' : '▼') + Math.abs(upside * 100).toFixed(1) + '% upside' +
+                '</span>' +
+              '</div>' +
             '</div>'
           })() : '') +
           '<div class="bar-wrap"><div class="bar-dot" style="left:' + pct + '%"></div></div>' +
           '<div class="bar-labels"><span>' + fmt(p?.low52) + '</span><span>52W Range</span><span>' + fmt(p?.high52) + '</span></div>' +
         '</div>' +
         '<div class="ticker-right">' +
-          (t.bullCase ? '<div class="note-block note-bull"><strong>Bull Case</strong><p>' + t.bullCase.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') + '</p></div>' : '') +
-          (t.bearCase ? '<div class="note-block note-bear"><strong>Bear Case</strong><p>' + t.bearCase.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') + '</p></div>' : '') +
-          (t.entryNote ? '<div class="note-block note-entry"><strong>Entry Note</strong><p>' + t.entryNote.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') + '</p></div>' : '') +
+          (t.bullCase ? '<div class="note-block note-bull"><strong>Bull Case</strong><p>' + cleanText(t.bullCase) + '</p></div>' : '') +
+          (t.bearCase ? '<div class="note-block note-bear"><strong>Bear Case</strong><p>' + cleanText(t.bearCase) + '</p></div>' : '') +
+          (t.entryNote ? '<div class="note-block note-entry"><strong>Entry Note</strong><p>' + cleanText(t.entryNote) + '</p></div>' : '') +
         '</div>' +
       '</div>'
     )
@@ -277,8 +297,6 @@ export function buildHTMLExport(state, recommendation) {
     const confidenceText = (r.confidence ? r.confidence.toUpperCase() : 'MEDIUM') + ' CONFIDENCE'
     const confidenceClass = r.confidence === 'High' ? 'ai-rec-conf-high' : 'ai-rec-conf-med'
 
-    const mdBold = (str) => (str || '').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-
     const paramEntries = Object.entries(sp)
     const leftParams = paramEntries.filter((_, i) => i % 2 === 0)
     const rightParams = paramEntries.filter((_, i) => i % 2 === 1)
@@ -299,7 +317,7 @@ export function buildHTMLExport(state, recommendation) {
       : ''
 
     const basketHTML = state.basketDynamics
-      ? '<div class="ai-rec-basket-text">' + mdBold(state.basketDynamics).replace(/\n/g, '<br>') + '</div>'
+      ? '<div class="ai-rec-basket-text">' + cleanText(state.basketDynamics).replace(/\n/g, '<br>') + '</div>'
       : '<div class="ai-rec-empty">No basket dynamics available.</div>'
 
     return (
@@ -313,7 +331,7 @@ export function buildHTMLExport(state, recommendation) {
           '<span class="' + confidenceClass + '">' + confidenceText + '</span>' +
         '</div>' +
 
-        '<div class="ai-rec-justification-block">' + mdBold(r.justification) + '</div>' +
+        '<div class="ai-rec-justification-block">' + cleanText(r.justification) + '</div>' +
 
         '<div class="ai-rec-structure">' +
           '<div class="ai-rec-structure-title">Suggested Structure</div>' +
@@ -343,7 +361,7 @@ export function buildHTMLExport(state, recommendation) {
   // Page 2: standalone basket dynamics only when no recommendation
   const page2BasketHTML = !recommendation
     ? '<div class="section"><h2>Basket Dynamics</h2><div class="thesis-block">' +
-      (state.basketDynamics || '').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>') +
+      cleanText(state.basketDynamics || '').replace(/\n/g, '<br>') +
       '</div></div>'
     : ''
 
@@ -364,7 +382,7 @@ export function buildHTMLExport(state, recommendation) {
   <div class="content">
     <div class="section">
       <h2>Investment Thesis</h2>
-      <div class="thesis-block">${(state.thesis || '').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>')}</div>
+      <div class="thesis-block">${cleanText(state.thesis || '').replace(/\n/g, '<br>')}</div>
     </div>
     <div class="section">
       <h2>Underlying Assets</h2>

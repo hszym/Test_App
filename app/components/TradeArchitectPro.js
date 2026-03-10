@@ -85,6 +85,20 @@ function fmt(n, dec = 2) {
   return Number(n).toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec })
 }
 
+function cleanText(text) {
+  if (!text) return ''
+  return text
+    .replace(/^#{1,3}\s+/gm, '')
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/\*(.*?)\*/g, '$1')
+    .replace(/^[-•]\s+/gm, '')
+    .replace(/
+{3,}/g, '
+
+')
+    .trim()
+}
+
 async function fetchMarketData(symbol) {
   try {
     const res = await fetch('/api/market-data', {
@@ -911,7 +925,7 @@ Respond ONLY in this exact JSON format:
                     return (
                       <div key={i} className="tap-stock-card">
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                          <div><div className="tap-stock-symbol">{t.symbol}</div><div style={{ fontSize: 10, color: '#6b7a99', marginTop: 2, fontStyle: 'italic' }}>{t.data?.name || ''}</div></div>
+                          <div><div className="tap-stock-symbol">{t.symbol}</div><div style={{ fontSize: 11, color: '#6b7a99', fontStyle: 'italic', marginTop: 2, marginBottom: 4 }}>{t.data?.name || ''}</div></div>
                           <div style={{ textAlign: 'right' }}>
                             <div className="tap-stock-price">{fmt(p.price)}</div>
                             <div className={`tap-stock-change ${p.change >= 0 ? 'pos' : 'neg'}`}>{p.change >= 0 ? '▲' : '▼'} {fmt(Math.abs(p.change))}%</div>
@@ -927,36 +941,28 @@ Respond ONLY in this exact JSON format:
                           <div style={{ fontSize: 11, color: '#4a5578' }}>IV <span style={{ color: '#a0aec0', fontFamily: MONO }}>{p.iv != null ? fmt(p.iv) + '%' : '—'}</span></div>
                           {p.live && <span style={{ fontSize: 10, color: '#4ade80', fontWeight: 600, letterSpacing: '0.05em' }}>● Live</span>}
                         </div>
-                        {p.analystTarget && (() => {
-                          const upside = p.price ? ((p.analystTarget / p.price - 1) * 100) : null
-                          return (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
-                              <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', background: '#202a3e', padding: '2px 8px', borderRadius: 3, fontFamily: MONO }}>Target ${fmt(p.analystTarget)}</span>
-                              {upside != null && <span style={{ fontSize: 10, fontWeight: 700, color: upside >= 0 ? '#4ade80' : '#f87171' }}>{upside >= 0 ? '+' : ''}{upside.toFixed(1)}%</span>}
-                            </div>
-                          )
-                        })()}
-                        {p.analystRating && (() => {
-                          const total = (p.analystBuy || 0) + (p.analystHold || 0) + (p.analystSell || 0)
-                          const buyPct = total ? Math.round((p.analystBuy / total) * 100) : 0
-                          const holdPct = total ? Math.round((p.analystHold / total) * 100) : 0
-                          const sellPct = total ? 100 - buyPct - holdPct : 0
-                          const badgeColor = p.analystRating === 'Buy' ? '#4ade80' : p.analystRating === 'Sell' ? '#f87171' : '#a0aec0'
-                          return (
-                            <div style={{ marginTop: 8 }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
-                                <span style={{ fontSize: 10, fontWeight: 700, color: badgeColor, border: `1px solid ${badgeColor}`, borderRadius: 3, padding: '1px 6px', letterSpacing: '0.06em' }}>{p.analystRating.toUpperCase()}</span>
+                        {p.analystTarget && (
+                          <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            {p.analystRating && (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', padding: '2px 8px', borderRadius: 3, background: p.analystRating === 'Buy' ? '#059669' : p.analystRating === 'Sell' ? '#dc2626' : '#6b7a99' }}>
+                                  {p.analystRating}
+                                </span>
+                                <span style={{ fontSize: 10, color: '#6b7a99' }}>
+                                  consensus ({(p.analystBuy || 0) + (p.analystHold || 0) + (p.analystSell || 0)} analysts)
+                                </span>
                               </div>
-                              {total > 0 && (
-                                <div style={{ display: 'flex', borderRadius: 3, overflow: 'hidden', height: 5 }}>
-                                  <div style={{ width: `${buyPct}%`, background: '#4ade80' }} title={`Buy: ${p.analystBuy}`} />
-                                  <div style={{ width: `${holdPct}%`, background: '#4a5578' }} title={`Hold: ${p.analystHold}`} />
-                                  <div style={{ width: `${sellPct}%`, background: '#f87171' }} title={`Sell: ${p.analystSell}`} />
-                                </div>
-                              )}
+                            )}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <span style={{ fontSize: 10, fontWeight: 600, color: '#fff', background: '#202a3e', padding: '2px 8px', borderRadius: 3 }}>
+                                PT: ${fmt(p.analystTarget)}
+                              </span>
+                              <span style={{ fontSize: 10, fontWeight: 600, color: ((p.analystTarget - p.price) / p.price) >= 0 ? '#059669' : '#dc2626' }}>
+                                {((p.analystTarget - p.price) / p.price) >= 0 ? '▲' : '▼'}{Math.abs((p.analystTarget - p.price) / p.price * 100).toFixed(1)}% upside
+                              </span>
                             </div>
-                          )
-                        })()}
+                          </div>
+                        )}
                         <div className="tap-divider" />
                         {[{ key: 'bullCase', label: '🟢 Bull Case', field: `bull_${i}` }, { key: 'bearCase', label: '🔴 Bear Case', field: `bear_${i}` }, { key: 'entryNote', label: '📍 Entry Note', field: `entry_${i}` }].map(({ key, label, field }) => (
                           <div key={key} style={{ marginBottom: 10 }}>
@@ -969,7 +975,7 @@ Respond ONLY in this exact JSON format:
                                 </button>
                               </div>
                             </div>
-                            <textarea className="tap-textarea" style={{ minHeight: 60, fontSize: 12 }} value={t[key]}
+                            <textarea className="tap-textarea" style={{ minHeight: 60, fontSize: 12 }} value={cleanText(t[key])}
                               onChange={e => setState(prev => { const tickers = [...prev.tickers]; tickers[i] = { ...tickers[i], [key]: e.target.value }; return { ...prev, tickers } })}
                               placeholder={`${label.split(' ').slice(1).join(' ')}…`} />
                           </div>
