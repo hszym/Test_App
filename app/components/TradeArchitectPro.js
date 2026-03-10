@@ -12,13 +12,13 @@ const BONUS_CAPS = { '12M': '125%', '18M': '137.5%', '24M': '150%', '36M': '175%
 const CPN_PROTECTIONS = ['85%', '90%', '95%', '100%']
 
 const MOCK_DATA = {
-  AAPL: { price: 189.84, change: 1.23, low52: 164.08, high52: 199.62, iv: 28.4 },
-  MSFT: { price: 415.32, change: -0.45, low52: 309.45, high52: 430.82, iv: 24.1 },
-  NVDA: { price: 875.40, change: 3.18, low52: 430.00, high52: 974.00, iv: 52.3 },
-  TSLA: { price: 175.22, change: -2.10, low52: 138.80, high52: 299.29, iv: 61.8 },
-  AMZN: { price: 198.10, change: 0.87, low52: 151.61, high52: 201.20, iv: 31.2 },
-  GOOGL: { price: 172.63, change: 0.52, low52: 120.21, high52: 180.25, iv: 27.9 },
-  META:  { price: 526.86, change: 1.95, low52: 279.40, high52: 542.81, iv: 35.6 },
+  AAPL:  { price: 189.84, change:  1.23, low52: 164.08, high52: 199.62, iv: 28.4, name: 'Apple Inc.',            analystRating: 'Buy',  analystTarget: 220.00, analystBuy: 28, analystHold:  8, analystSell: 2 },
+  MSFT:  { price: 415.32, change: -0.45, low52: 309.45, high52: 430.82, iv: 24.1, name: 'Microsoft Corporation', analystRating: 'Buy',  analystTarget: 480.00, analystBuy: 35, analystHold:  5, analystSell: 1 },
+  NVDA:  { price: 875.40, change:  3.18, low52: 430.00, high52: 974.00, iv: 52.3, name: 'NVIDIA Corporation',    analystRating: 'Buy',  analystTarget: 1000.00,analystBuy: 38, analystHold:  4, analystSell: 0 },
+  TSLA:  { price: 175.22, change: -2.10, low52: 138.80, high52: 299.29, iv: 61.8, name: 'Tesla Inc.',            analystRating: 'Hold', analystTarget: 195.00, analystBuy: 15, analystHold: 12, analystSell: 8 },
+  AMZN:  { price: 198.10, change:  0.87, low52: 151.61, high52: 201.20, iv: 31.2, name: 'Amazon.com Inc.',       analystRating: 'Buy',  analystTarget: 230.00, analystBuy: 40, analystHold:  3, analystSell: 0 },
+  GOOGL: { price: 172.63, change:  0.52, low52: 120.21, high52: 180.25, iv: 27.9, name: 'Alphabet Inc.',         analystRating: 'Buy',  analystTarget: 205.00, analystBuy: 32, analystHold:  6, analystSell: 1 },
+  META:  { price: 526.86, change:  1.95, low52: 279.40, high52: 542.81, iv: 35.6, name: 'Meta Platforms Inc.',   analystRating: 'Buy',  analystTarget: 600.00, analystBuy: 36, analystHold:  5, analystSell: 1 },
   NESN:  { price: 94.22, change: -0.31, low52: 86.00, high52: 110.80, iv: 18.2 },
   ASML:  { price: 870.55, change: 2.41, low52: 560.00, high52: 1000.00, iv: 34.5 },
 }
