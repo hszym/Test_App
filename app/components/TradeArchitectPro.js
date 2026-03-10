@@ -554,9 +554,22 @@ export default function TradeArchitectPro() {
         if (short) {
           const shortMap = { bull: 'bull case in 1–2 punchy sentences', bear: 'bear case in 1–2 punchy sentences', entry: 'entry rationale in 1–2 direct sentences' }
           prompt = `Write a ${shortMap[type]} for ${sym} for an institutional pitch. No disclaimers.`
+        } else if (type === 'bull') {
+          prompt = `Write 4-5 sentences maximum on the bull case for ${sym}.
+Focus on: earnings momentum, analyst conviction, upcoming catalysts.
+Do NOT include price targets inline.
+Do NOT include a Sources section.
+No markdown, no headers, pure prose.
+Start directly with the analysis.`
+        } else if (type === 'bear') {
+          prompt = `Write 4-5 sentences maximum on the bear case for ${sym}.
+Focus on: key risks, valuation concerns, macro headwinds.
+Do NOT include price targets inline.
+Do NOT include a Sources section.
+No markdown, no headers, pure prose.
+Start directly with the analysis.`
         } else {
-          const typeMap = { bull: 'bull case (3–4 sentences, positive scenario)', bear: 'bear case (3–4 sentences, downside risks)', entry: 'entry note (2–3 sentences, technical entry rationale)' }
-          prompt = `Write a professional ${typeMap[type]} for ${sym} for an institutional pitch deck. Be specific and use financial terminology. No disclaimers.`
+          prompt = `Write a professional entry note (2–3 sentences, technical entry rationale) for ${sym} for an institutional pitch deck. Be specific and use financial terminology. No disclaimers.`
         }
       } else if (field === 'thesis') {
         if (short) {
@@ -970,36 +983,50 @@ Respond ONLY in this exact JSON format:
                     return (
                       <div key={i} className="tap-stock-card">
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                          <div><div className="tap-stock-symbol">{t.symbol}</div>{t.data?.name && <div style={{ fontSize: 11, color: '#6b7a99', fontStyle: 'italic', marginTop: 2 }}>{t.data.name}</div>}</div>
+                          <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <div className="tap-stock-symbol">{t.symbol}</div>
+                              {t.currency && <span style={{ fontSize: 9, color: '#6b7a99', background: '#f3f4f5', padding: '2px 6px', borderRadius: 3 }}>{t.currency}</span>}
+                            </div>
+                            {p.name && <div style={{ fontSize: 11, color: '#6b7a99', fontStyle: 'italic', marginTop: 2 }}>{p.name}</div>}
+                          </div>
                           <div style={{ textAlign: 'right' }}>
                             <div className="tap-stock-price">{fmt(p.price)}</div>
                             <div className={`tap-stock-change ${p.change >= 0 ? 'pos' : 'neg'}`}>{p.change >= 0 ? '▲' : '▼'} {fmt(Math.abs(p.change))}%</div>
                           </div>
                         </div>
-                        <div className="tap-52w">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: 10, background: '#f3f4f5', color: '#202a3e', padding: '3px 8px', borderRadius: 3 }}>
+                            IV {p.iv != null ? fmt(p.iv) + '%' : '—'}
+                          </span>
+                          {(p.analystTarget || p.analystRating) && <span style={{ display: 'inline-block', width: 1, height: 14, background: '#e2e8f0', margin: '0 4px' }} />}
+                          {p.analystTarget && p.price && (() => {
+                            const upside = (p.analystTarget - p.price) / p.price
+                            return <>
+                              <span style={{ fontSize: 10, background: '#202a3e', color: '#fff', padding: '3px 8px', borderRadius: 3 }}>
+                                PT ${fmt(p.analystTarget)}
+                              </span>
+                              <span style={{ fontSize: 10, fontWeight: 600, color: upside >= 0 ? '#059669' : '#dc2626' }}>
+                                {upside >= 0 ? '▲' : '▼'}{Math.abs(upside * 100).toFixed(1)}%
+                              </span>
+                            </>
+                          })()}
+                          {p.analystRating && <span style={{ display: 'inline-block', width: 1, height: 14, background: '#e2e8f0', margin: '0 4px' }} />}
+                          {p.analystRating && (() => {
+                            const bg = p.analystRating === 'Buy' ? '#059669' : p.analystRating === 'Sell' ? '#dc2626' : '#6b7a99'
+                            const total = (p.analystBuy || 0) + (p.analystHold || 0) + (p.analystSell || 0)
+                            return <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', background: bg, padding: '3px 8px', borderRadius: 3 }}>
+                              {p.analystRating}{total ? ` (${total} analysts)` : ""}
+                            </span>
+                          })()}
+                          {p.live && <span style={{ fontSize: 10, color: '#4ade80', fontWeight: 600, letterSpacing: '0.05em', marginLeft: 4 }}>● Live</span>}
+                        </div>
+                        <div className="tap-52w" style={{ marginTop: 10 }}>
                           <div className="tap-52w-bar-wrap">
                             <div style={{ position: 'absolute', top: '50%', left: `${pct}%`, transform: 'translate(-50%, -50%)', width: 12, height: 12, background: '#ffffff', border: '2px solid #b38559', borderRadius: '50%', zIndex: 1 }} />
                           </div>
                           <div className="tap-52w-labels"><span>{fmt(p.low52)} L</span><span>52W Range</span><span>H {fmt(p.high52)}</span></div>
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                          <div style={{ fontSize: 11, color: '#4a5578' }}>IV <span style={{ color: '#a0aec0', fontFamily: MONO }}>{p.iv != null ? fmt(p.iv) + '%' : '—'}</span></div>
-                          {p.live && <span style={{ fontSize: 10, color: '#4ade80', fontWeight: 600, letterSpacing: '0.05em' }}>● Live</span>}
-                        </div>
-                        {p.analystRating && (
-                          <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', padding: '2px 7px', borderRadius: 3, background: p.analystRating === 'Buy' ? '#059669' : p.analystRating === 'Sell' ? '#dc2626' : '#6b7a99' }}>
-                              {p.analystRating}
-                            </span>
-                            {p.analystTarget && p.price && (
-                              <span style={{ fontSize: 10, fontWeight: 600, color: p.analystTarget >= p.price ? '#059669' : '#dc2626' }}>
-                                PT ${fmt(p.analystTarget)} &nbsp;
-                                {p.analystTarget >= p.price ? '▲' : '▼'}
-                                {Math.abs((p.analystTarget - p.price) / p.price * 100).toFixed(1)}%
-                              </span>
-                            )}
-                          </div>
-                        )}
                         <div className="tap-divider" />
                         {[{ key: 'bullCase', label: '🟢 Bull Case', field: `bull_${i}` }, { key: 'bearCase', label: '🔴 Bear Case', field: `bear_${i}` }, { key: 'entryNote', label: '📍 Entry Note', field: `entry_${i}` }].map(({ key, label, field }) => (
                           <div key={key} style={{ marginBottom: 10 }}>

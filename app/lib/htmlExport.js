@@ -65,7 +65,7 @@ h2 { font-family: 'Cormorant Garamond', serif; font-size: 19px; font-weight: 600
 .tickers { padding-top: 4px }
 .ticker-row { display: flex; gap: 28px; align-items: flex-start; padding: 18px 0; border-bottom: 1px solid #f0e8dc }
 .ticker-row:last-child { border-bottom: none }
-.ticker-left { flex: 0 0 170px }
+.ticker-left { flex: 0 0 210px }
 .ticker-right { flex: 1 }
 .ticker-symbol { font-family: 'Cormorant Garamond', serif; font-size: 20px; font-weight: 700; color: #202a3e }
 .ticker-cur { display: inline-block; font-size: 9px; color: #999; background: #f3f4f5; padding: 2px 5px; border-radius: 2px; margin-left: 6px; vertical-align: middle }
@@ -186,34 +186,28 @@ export function buildHTMLExport(state, recommendation) {
     return (
       '<div class="ticker-row">' +
         '<div class="ticker-left">' +
-          '<div>' +
-            '<span class="ticker-symbol">' + t.symbol + '</span>' +
-            (t.currency ? '<span class="ticker-cur">' + t.currency + '</span>' : '') +
-          '</div>' +
-          (p?.name ? '<div style="font-size:10px;color:#6b7a99;font-style:italic;margin-top:2px;line-height:1.3">' + p.name + '</div>' : '') +
-          '<div class="ticker-price">' + fmt(p?.price) + '</div>' +
-          '<div class="ticker-chg ' + chgClass + '">' + chgArrow + ' ' + fmt(Math.abs(p?.change ?? 0)) + '%</div>' +
-          '<div class="ticker-iv">IV: ' + fmt(p?.iv) + '%</div>' +
-          (p?.analystTarget ? (() => {
-            const upside = (p.analystTarget - p.price) / p.price
-            const ratingBg = p?.analystRating === 'Buy' ? '#059669' : p?.analystRating === 'Sell' ? '#dc2626' : '#6b7a99'
-            const totalAnalysts = (p?.analystBuy || 0) + (p?.analystHold || 0) + (p?.analystSell || 0)
-            return '<div style="margin-top:8px">' +
-              (p?.analystRating ?
-                '<div style="margin-bottom:4px">' +
-                  '<span style="font-size:9px;font-weight:700;color:#fff;padding:2px 7px;border-radius:3px;background:' + ratingBg + '">' + p.analystRating + '</span>' +
-                  '<span style="font-size:9px;color:#888;margin-left:6px">consensus (' + totalAnalysts + ' analysts)</span>' +
-                '</div>'
-              : '') +
-              '<div style="display:flex;align-items:center;gap:8px">' +
-                '<span style="font-size:9px;font-weight:700;color:#fff;background:#202a3e;padding:2px 7px;border-radius:3px">PT: $' + fmt(p.analystTarget) + '</span>' +
-                '<span style="font-size:9px;font-weight:600;color:' + (upside >= 0 ? '#059669' : '#dc2626') + '">' +
-                  (upside >= 0 ? '▲' : '▼') + Math.abs(upside * 100).toFixed(1) + '% upside' +
-                '</span>' +
+          '<div style="display:flex;justify-content:space-between;align-items:flex-start">' +
+            '<div>' +
+              '<div style="display:flex;align-items:center;gap:6px">' +
+                '<span class="ticker-symbol">' + t.symbol + '</span>' +
+                (t.currency ? '<span class="ticker-cur">' + t.currency + '</span>' : '') +
               '</div>' +
-            '</div>'
-          })() : '') +
-          '<div class="bar-wrap"><div class="bar-dot" style="left:' + pct + '%"></div></div>' +
+              (p?.name ? '<div style="font-size:10px;color:#6b7a99;font-style:italic;margin-top:2px;line-height:1.3">' + p.name + '</div>' : '') +
+            '</div>' +
+            '<div style="text-align:right">' +
+              '<div class="ticker-price">' + fmt(p?.price) + '</div>' +
+              '<div class="ticker-chg ' + chgClass + '">' + chgArrow + ' ' + fmt(Math.abs(p?.change ?? 0)) + '%</div>' +
+            '</div>' +
+          '</div>' +
+          '<div style="display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap">' +
+            '<span style="font-size:9px;background:#f3f4f5;color:#202a3e;padding:2px 7px;border-radius:3px">IV ' + (p?.iv != null ? fmt(p.iv) + '%' : '—') + '</span>' +
+            (p?.analystTarget || p?.analystRating ? '<span style="display:inline-block;width:1px;height:12px;background:#e2e8f0;margin:0 4px"></span>' : '') +
+            (p?.analystTarget ? '<span style="font-size:9px;font-weight:700;color:#fff;background:#202a3e;padding:2px 7px;border-radius:3px">PT $' + fmt(p.analystTarget) + '</span>' : '') +
+            (p?.analystTarget && p?.price ? '<span style="font-size:9px;font-weight:600;color:' + ((p.analystTarget - p.price) >= 0 ? '#059669' : '#dc2626') + '">' + ((p.analystTarget - p.price) >= 0 ? '▲' : '▼') + Math.abs((p.analystTarget - p.price) / p.price * 100).toFixed(1) + '%</span>' : '') +
+            (p?.analystRating ? '<span style="display:inline-block;width:1px;height:12px;background:#e2e8f0;margin:0 4px"></span>' : '') +
+            (() => { if (!p?.analystRating) return ''; const bg = p.analystRating === 'Buy' ? '#059669' : p.analystRating === 'Sell' ? '#dc2626' : '#6b7a99'; const total = (p?.analystBuy || 0) + (p?.analystHold || 0) + (p?.analystSell || 0); return '<span style="font-size:9px;font-weight:700;color:#fff;background:' + bg + ';padding:2px 7px;border-radius:3px">' + p.analystRating + (total ? ' (' + total + ')' : '') + '</span>' })() +
+          '</div>' +
+          '<div class="bar-wrap" style="margin-top:10px"><div class="bar-dot" style="left:' + pct + '%"></div></div>' +
           '<div class="bar-labels"><span>' + fmt(p?.low52) + '</span><span>52W Range</span><span>' + fmt(p?.high52) + '</span></div>' +
         '</div>' +
         '<div class="ticker-right">' +
@@ -223,7 +217,7 @@ export function buildHTMLExport(state, recommendation) {
         '</div>' +
       '</div>'
     )
-  }).join('')
+    }).join('')
 
   const paramCardsHTML = (state.productRows || []).length === 0 ? '' :
     '<table style="width:100%;border-collapse:collapse">' +
