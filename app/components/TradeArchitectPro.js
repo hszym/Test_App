@@ -165,6 +165,12 @@ body{background:#f3f4f5;color:#202a3e;font-family:${FONT}}
 .tap-textarea::placeholder{color:#6b7280}
 .tap-ticker-row{display:flex;gap:10px;align-items:flex-end;margin-bottom:12px}
 .tap-ticker-sym{flex:2}
+.ticker-dropdown{position:absolute;top:100%;left:0;right:0;background:#0d1017;border:1px solid #2a3555;border-top:none;border-radius:0 0 6px 6px;z-index:50;max-height:220px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.4)}
+.ticker-dropdown-item{padding:8px 12px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #141824;transition:background .1s}
+.ticker-dropdown-item:hover,.ticker-dropdown-item.active{background:#1a2035}
+.ticker-dropdown-symbol{font-family:${MONO};font-size:13px;font-weight:700;color:#e8eaf0}
+.ticker-dropdown-exchange{font-size:9px;color:#4a5578;background:#141824;padding:1px 5px;border-radius:2px;margin-left:6px}
+.ticker-dropdown-name{font-size:11px;color:#6b7a99;font-style:italic;text-align:right;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .tap-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;border:none;font-family:${FONT};letter-spacing:.02em;white-space:nowrap}
 .tap-btn-primary{background:#b38559;color:#fff}
 .tap-btn-primary:hover{background:#a0764a}
@@ -292,6 +298,94 @@ body{background:#f3f4f5;color:#202a3e;font-family:${FONT}}
 .sg-disconnect-btn:hover{background:#f3f4f5}
 `
 
+function TickerAutocomplete({ value, onSymbolChange, onSelect }) {
+  const [results, setResults] = React.useState([])
+  const [loading, setLoading] = React.useState(false)
+  const [showDropdown, setShowDropdown] = React.useState(false)
+  const [activeIdx, setActiveIdx] = React.useState(-1)
+  const containerRef = React.useRef(null)
+  const debounceRef = React.useRef(null)
+
+  React.useEffect(() => {
+    const handler = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) setShowDropdown(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const search = React.useCallback(async (q) => {
+    if (q.length < 2) { setResults([]); setShowDropdown(false); return }
+    setLoading(true)
+    try {
+      const res = await fetch('/api/ticker-search?q=' + encodeURIComponent(q))
+      const data = await res.json()
+      setResults(data)
+      setShowDropdown(data.length > 0)
+      setActiveIdx(-1)
+    } catch {}
+    setLoading(false)
+  }, [])
+
+  const handleChange = (e) => {
+    const val = e.target.value.toUpperCase()
+    onSymbolChange(val)
+    clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => search(val), 300)
+  }
+
+  const handleSelect = (item) => {
+    onSymbolChange(item.symbol)
+    setShowDropdown(false)
+    setResults([])
+    setActiveIdx(-1)
+    onSelect(item.symbol)
+  }
+
+  const handleKeyDown = (e) => {
+    if (!showDropdown) return
+    if (e.key === 'ArrowDown') { e.preventDefault(); setActiveIdx(i => Math.min(i + 1, results.length - 1)) }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setActiveIdx(i => Math.max(i - 1, -1)) }
+    else if (e.key === 'Enter' && activeIdx >= 0) { e.preventDefault(); handleSelect(results[activeIdx]) }
+    else if (e.key === 'Escape') { setShowDropdown(false) }
+  }
+
+  return (
+    <div ref={containerRef} style={{ position: 'relative' }}>
+      <div style={{ position: 'relative' }}>
+        <input
+          className="tap-input"
+          value={value}
+          onChange={handleChange}
+          onKeyDown={handleKeyDown}
+          placeholder="e.g. AAPL"
+          style={{ fontFamily: 'monospace', fontWeight: 600 }}
+          autoComplete="off"
+        />
+        {loading && <div style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 14, color: '#b38559' }}>⟳</div>}
+      </div>
+      {showDropdown && results.length > 0 && (
+        <div className="ticker-dropdown">
+          {results.map((item, idx) => (
+            <div
+              key={item.symbol}
+              className={'ticker-dropdown-item' + (idx === activeIdx ? ' active' : '')}
+              onMouseDown={() => handleSelect(item)}
+              onMouseEnter={() => setActiveIdx(idx)}
+            >
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+                <span className="ticker-dropdown-symbol">{item.symbol}</span>
+                {item.exchange && <span className="ticker-dropdown-exchange">{item.exchange}</span>}
+              </div>
+              <span className="ticker-dropdown-name">{item.name}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function Spinner() { return <span className="spin">⟳</span> }
 
 function ShortLongToggle({ value, onChange }) {
@@ -401,10 +495,10 @@ export default function TradeArchitectPro() {
     } else { fallbackCopy(text, type) }
   }
 
-  const fetchTicker = useCallback(async (idx) => {
-    const sym = state.tickers[idx]?.symbol
+  const fetchTicker = useCallback(async (idx, symOverride) => {
+    const sym = symOverride || state.tickers[idx]?.symbol
     if (!sym) return
-    setState(prev => { const t = [...prev.tickers]; t[idx] = { ...t[idx], loading: true, data: null }; return { ...prev, tickers: t } })
+    setState(prev => { const t = [...prev.tickers]; t[idx] = { ...t[idx], symbol: sym, loading: true, data: null }; return { ...prev, tickers: t } })
     try {
       const data = await fetchMarketData(sym)
       setState(prev => { const t = [...prev.tickers]; t[idx] = { ...t[idx], loading: false, data }; return { ...prev, tickers: t } })
@@ -748,11 +842,13 @@ Respond ONLY in this exact JSON format:
                   <div className="tap-ticker-row">
                     <div className="tap-field tap-ticker-sym">
                       <label className="tap-label">Ticker {i + 1}</label>
-                      <input className="tap-input" value={t.symbol}
-                        onChange={e => setState(prev => { const tickers = [...prev.tickers]; tickers[i] = { ...tickers[i], symbol: e.target.value.toUpperCase() }; return { ...prev, tickers } })}
-                        placeholder="e.g. AAPL" style={{ fontFamily: MONO, fontWeight: 600 }} />
+                      <TickerAutocomplete
+                        value={t.symbol}
+                        onSymbolChange={val => setState(prev => { const tickers = [...prev.tickers]; tickers[i] = { ...tickers[i], symbol: val }; return { ...prev, tickers } })}
+                        onSelect={sym => fetchTicker(i, sym)}
+                      />
                     </div>
-                    <button className="tap-fetch-btn" onClick={() => fetchTicker(i)} disabled={!t.symbol}>
+                    <button className="tap-fetch-btn" onClick={() => fetchTicker(i)} disabled={!t.symbol || t.loading}>
                       {t.loading ? <Spinner /> : 'Fetch ↓'}
                     </button>
                   </div>
