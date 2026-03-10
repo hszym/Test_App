@@ -98,6 +98,21 @@ const cleanText = (text) => {
     .replace(/\n\n\n+/g, '\n\n')
     .trim()
 }
+
+const cleanThesis = (text) => {
+  if (!text) return ''
+  return text
+    .replace(/^.*?(here is|investment thesis|basket|following).*?\n/gi, '')
+    .replace(/^#{1,6}\s+.*/gm, '')
+    .replace(/^-{2,}$/gm, '')
+    .replace(/\*?\*?sources?\*?\*?:[\s\S]*/gi, '')
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/\*(.*?)\*/g, '$1')
+    .replace(/\[\d+\]/g, '')
+    .replace(/\s*—\s*[A-Z][^.]*?(IR|Press Release|Morgan|Goldman|JPMorgan)[^.]*\./g, '.')
+    .replace(/\n\n\n+/g, '\n\n')
+    .trim()
+}
 async function fetchMarketData(symbol) {
   try {
     const res = await fetch('/api/market-data', {
@@ -587,11 +602,12 @@ STRICT RULES:
         const keyMap = { bull: 'bullCase', bear: 'bearCase', entry: 'entryNote' }
         setState(prev => {
           const tickers = [...prev.tickers]
-          tickers[parseInt(idx)] = { ...tickers[parseInt(idx)], [keyMap[type]]: result.trim() }
+          tickers[parseInt(idx)] = { ...tickers[parseInt(idx)], [keyMap[type]]: cleanText(result) }
           return { ...prev, tickers, aiLoading: { ...prev.aiLoading, [field]: false } }
         })
       } else {
-        setState(prev => ({ ...prev, [field]: result.trim(), aiLoading: { ...prev.aiLoading, [field]: false } }))
+        const cleaned = (field === 'thesis' || field === 'basketDynamics') ? cleanThesis(result) : result.trim()
+        setState(prev => ({ ...prev, [field]: cleaned, aiLoading: { ...prev.aiLoading, [field]: false } }))
       }
     } catch (err) {
       console.error('AI error full details:', err)
