@@ -547,31 +547,34 @@ export default function TradeArchitectPro() {
         if (short) {
           prompt = `You are a senior structured products analyst at ${state.bankName || 'a private bank'}.
 
-Write a concise investment thesis in MAXIMUM 10 lines for a basket of: ${syms}.
+Write a concise investment thesis in maximum 10 lines for a basket of: ${syms}.
 
-Rules:
+STRICT RULES:
+- Start DIRECTLY with the thesis — no introduction, no title, no "Here is..."
 - Focus EXCLUSIVELY on thematic and macro drivers
 - Do NOT mention individual stocks by name
-- Cover: sector backdrop, macro tailwinds, why this theme is compelling NOW
-- Institutional tone, no disclaimers
-- No bullet points, pure flowing prose
-- No headers, no bold, no markdown
-- Maximum 10 lines`
+- No bullet points, no headers, no bold, no markdown
+- No dashes at the start of sentences
+- No sources section
+- No "---" separators
+- Pure flowing prose only, maximum 10 lines`
         } else {
           prompt = `You are a senior structured products analyst at ${state.bankName || 'a private bank'}.
 
-Write a professional institutional investment thesis (4-6 sentences) for a basket: ${syms}.
+Write an institutional investment thesis for a basket of: ${syms}.
 
-Search for the latest macro data, sector trends, and recent analyst views before writing.
+Search for latest macro data and sector trends before writing.
 
-Rules:
-- Start with the macro/thematic backdrop
-- Explain why this sector/theme is compelling at this moment
-- Reference current market conditions (valuations, rates, cycle position)
-- Mention analyst consensus direction without quoting specific price targets
-- End with why a structured product overlay makes sense on this basket
-- Institutional tone, no disclaimers, no markdown, no bullet points
-- Pure flowing prose only`
+STRICT RULES:
+- Start DIRECTLY with the thesis — no introduction, no title, no "Here is..."
+- No "Investment Thesis:" header or any title
+- No "---" separators
+- No bold, no markdown, no bullet points
+- No dashes at the start of sentences
+- No sources or references section at the end
+- No individual stock mentions mixed with macro — keep it thematic
+- 4 to 6 sentences of pure flowing institutional prose
+- End naturally, no concluding "Sources:" line`
         }
       } else {
         prompt = short
