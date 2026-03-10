@@ -544,9 +544,35 @@ export default function TradeArchitectPro() {
           prompt = `Write a professional ${typeMap[type]} for ${sym} for an institutional pitch deck. Be specific and use financial terminology. No disclaimers.`
         }
       } else if (field === 'thesis') {
-        prompt = short
-          ? `Write a 1–2 sentence investment thesis for a basket of ${syms}. Punchy, institutional tone. No disclaimers.`
-          : `You are a senior structured products analyst at ${state.bankName || 'a private bank'}. Write a professional, institutional-grade investment thesis (4–6 sentences) for a basket of stocks: ${syms}. Focus on macro drivers, sector positioning, and rationale for a structured product overlay. No disclaimers. Pure thesis prose.`
+        if (short) {
+          prompt = `You are a senior structured products analyst at ${state.bankName || 'a private bank'}.
+
+Write a concise investment thesis in MAXIMUM 10 lines for a basket of: ${syms}.
+
+Rules:
+- Focus EXCLUSIVELY on thematic and macro drivers
+- Do NOT mention individual stocks by name
+- Cover: sector backdrop, macro tailwinds, why this theme is compelling NOW
+- Institutional tone, no disclaimers
+- No bullet points, pure flowing prose
+- No headers, no bold, no markdown
+- Maximum 10 lines`
+        } else {
+          prompt = `You are a senior structured products analyst at ${state.bankName || 'a private bank'}.
+
+Write a professional institutional investment thesis (4-6 sentences) for a basket: ${syms}.
+
+Search for the latest macro data, sector trends, and recent analyst views before writing.
+
+Rules:
+- Start with the macro/thematic backdrop
+- Explain why this sector/theme is compelling at this moment
+- Reference current market conditions (valuations, rates, cycle position)
+- Mention analyst consensus direction without quoting specific price targets
+- End with why a structured product overlay makes sense on this basket
+- Institutional tone, no disclaimers, no markdown, no bullet points
+- Pure flowing prose only`
+        }
       } else {
         prompt = short
           ? `In 1–2 sentences, summarise the basket dynamics for: ${syms}. Direct, institutional tone.`
