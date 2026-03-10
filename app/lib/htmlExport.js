@@ -2,7 +2,7 @@
 
 const RC_STRIKES = ['50%', '60%', '70%', '80%']
 const TENORS = ['12M', '18M', '24M', '36M']
-const SNOWBALL_BARRIERS = ['50%/5%', '60%/6%', '70%/7%', '80%/8%']
+const SNOWBALL_BARRIERS = ['50%/50%', '60%/60%', '70%/70%', '80%/80%']
 const BONUS_BARRIERS = ['50%', '60%', '70%', '80%']
 const BONUS_CAPS = { '12M': '125%', '18M': '137.5%', '24M': '150%', '36M': '175%' }
 const CPN_PROTECTIONS = ['85%', '90%', '95%', '100%']
