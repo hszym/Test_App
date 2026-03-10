@@ -88,10 +88,13 @@ function fmt(n, dec = 2) {
 const cleanText = (text) => {
   if (!text) return ''
   return text
-    .replace(/^#{1,3}\s+/gm, '')
+    .replace(/^#{1,6}\s+/gm, '')
     .replace(/\*\*(.*?)\*\*/g, '$1')
     .replace(/\*(.*?)\*/g, '$1')
-    .replace(/^[-•]\s+/gm, '')
+    .replace(/^[-•*]\s+/gm, '')
+    .replace(/^[A-Z]+\s*[-—]\s*[A-Z ]+\s*CASE\s*$/gm, '')
+    .replace(/^SOURCES?:.*$/gm, '')
+    .replace(/^---+$/gm, '')
     .replace(/\n\n\n+/g, '\n\n')
     .trim()
 }
@@ -511,6 +514,7 @@ export default function TradeArchitectPro() {
     setState(prev => { const t = [...prev.tickers]; t[idx] = { ...t[idx], symbol: sym, loading: true, data: null }; return { ...prev, tickers: t } })
     try {
       const data = await fetchMarketData(sym)
+      console.log('Market data received:', data)
       if (!data.name && nameHint) data.name = nameHint
       setState(prev => { const t = [...prev.tickers]; t[idx] = { ...t[idx], loading: false, data }; return { ...prev, tickers: t } })
     } catch {
@@ -921,7 +925,7 @@ Respond ONLY in this exact JSON format:
                     return (
                       <div key={i} className="tap-stock-card">
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                          <div><div className="tap-stock-symbol">{t.symbol}</div><div style={{ fontSize: 11, color: '#6b7a99', fontStyle: 'italic', marginTop: 2, marginBottom: 4 }}>{t.data?.name || ''}</div></div>
+                          <div><div className="tap-stock-symbol">{t.symbol}</div>{t.data?.name && <div style={{ fontSize: 11, color: '#6b7a99', fontStyle: 'italic', marginTop: 2 }}>{t.data.name}</div>}</div>
                           <div style={{ textAlign: 'right' }}>
                             <div className="tap-stock-price">{fmt(p.price)}</div>
                             <div className={`tap-stock-change ${p.change >= 0 ? 'pos' : 'neg'}`}>{p.change >= 0 ? '▲' : '▼'} {fmt(Math.abs(p.change))}%</div>
@@ -937,26 +941,18 @@ Respond ONLY in this exact JSON format:
                           <div style={{ fontSize: 11, color: '#4a5578' }}>IV <span style={{ color: '#a0aec0', fontFamily: MONO }}>{p.iv != null ? fmt(p.iv) + '%' : '—'}</span></div>
                           {p.live && <span style={{ fontSize: 10, color: '#4ade80', fontWeight: 600, letterSpacing: '0.05em' }}>● Live</span>}
                         </div>
-                        {p.analystTarget && (
-                          <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                            {p.analystRating && (
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', padding: '2px 8px', borderRadius: 3, background: p.analystRating === 'Buy' ? '#059669' : p.analystRating === 'Sell' ? '#dc2626' : '#6b7a99' }}>
-                                  {p.analystRating}
-                                </span>
-                                <span style={{ fontSize: 10, color: '#6b7a99' }}>
-                                  consensus ({(p.analystBuy || 0) + (p.analystHold || 0) + (p.analystSell || 0)} analysts)
-                                </span>
-                              </div>
+                        {p.analystRating && (
+                          <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', padding: '2px 7px', borderRadius: 3, background: p.analystRating === 'Buy' ? '#059669' : p.analystRating === 'Sell' ? '#dc2626' : '#6b7a99' }}>
+                              {p.analystRating}
+                            </span>
+                            {p.analystTarget && p.price && (
+                              <span style={{ fontSize: 10, fontWeight: 600, color: p.analystTarget >= p.price ? '#059669' : '#dc2626' }}>
+                                PT ${fmt(p.analystTarget)} &nbsp;
+                                {p.analystTarget >= p.price ? '▲' : '▼'}
+                                {Math.abs((p.analystTarget - p.price) / p.price * 100).toFixed(1)}%
+                              </span>
                             )}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                              <span style={{ fontSize: 10, fontWeight: 600, color: '#fff', background: '#202a3e', padding: '2px 8px', borderRadius: 3 }}>
-                                PT: ${fmt(p.analystTarget)}
-                              </span>
-                              <span style={{ fontSize: 10, fontWeight: 600, color: ((p.analystTarget - p.price) / p.price) >= 0 ? '#059669' : '#dc2626' }}>
-                                {((p.analystTarget - p.price) / p.price) >= 0 ? '▲' : '▼'}{Math.abs((p.analystTarget - p.price) / p.price * 100).toFixed(1)}% upside
-                              </span>
-                            </div>
                           </div>
                         )}
                         <div className="tap-divider" />
