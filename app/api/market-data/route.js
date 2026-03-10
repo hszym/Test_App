@@ -6,11 +6,12 @@ export async function POST(request) {
   const { symbol } = await request.json()
 
   try {
-    const [quote, quoteSummary] = await Promise.all([
+    const [quote, quoteSummary, optionsData] = await Promise.all([
       yahooFinance.quote(symbol),
       yahooFinance.quoteSummary(symbol, {
         modules: ['summaryDetail', 'financialData', 'recommendationTrend']
-      })
+      }),
+      yahooFinance.options(symbol).catch(() => null)
     ])
 
     const trend = quoteSummary?.recommendationTrend?.trend?.[0]
@@ -42,7 +43,17 @@ export async function POST(request) {
       analystHold: hold,
       analystSell: bearish,
       name: quote.longName || quote.shortName || quote.displayName || symbol,
-      iv: null,
+      iv: (() => {
+        if (!optionsData?.options?.[0]) return null
+        const currentPrice = quote.regularMarketPrice
+        const chain = [...(optionsData.options[0].calls || []), ...(optionsData.options[0].puts || [])]
+          .filter(o => o.impliedVolatility != null)
+        if (!chain.length) return null
+        const atm = chain.reduce((best, opt) =>
+          Math.abs(opt.strike - currentPrice) < Math.abs(best.strike - currentPrice) ? opt : best
+        )
+        return atm?.impliedVolatility ? Math.round(atm.impliedVolatility * 100 * 10) / 10 : null
+      })(),
       live: true,
     })
   } catch (error) {
