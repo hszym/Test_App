@@ -853,12 +853,15 @@ Respond ONLY in this exact JSON format:
                     </button>
                   </div>
                   {t.data && (
-                    <div className="tap-mdata">
-                      <div className="tap-mdata-chip"><span className="chip-val">{fmt(t.data.price)}</span> Price</div>
-                      <div className={`tap-mdata-chip ${t.data.change >= 0 ? 'pos' : 'neg'}`}>{t.data.change >= 0 ? '▲' : '▼'} {fmt(Math.abs(t.data.change))}%</div>
-                      <div className="tap-mdata-chip">52W <span className="chip-val">{fmt(t.data.low52)} – {fmt(t.data.high52)}</span></div>
-                      <div className="tap-mdata-chip">IV <span className="chip-val">{fmt(t.data.iv)}%</span></div>
-                    </div>
+                    <>
+                      {t.data.name && <div style={{ fontSize: 11, color: '#6b7a99', fontStyle: 'italic', marginTop: 6 }}>{t.data.name}</div>}
+                      <div className="tap-mdata">
+                        <div className="tap-mdata-chip"><span className="chip-val">{fmt(t.data.price)}</span> Price</div>
+                        <div className={`tap-mdata-chip ${t.data.change >= 0 ? 'pos' : 'neg'}`}>{t.data.change >= 0 ? '▲' : '▼'} {fmt(Math.abs(t.data.change))}%</div>
+                        <div className="tap-mdata-chip">52W <span className="chip-val">{fmt(t.data.low52)} – {fmt(t.data.high52)}</span></div>
+                        <div className="tap-mdata-chip">IV <span className="chip-val">{fmt(t.data.iv)}%</span></div>
+                      </div>
+                    </>
                   )}
                   {t.loading && <div style={{ fontSize: 12, color: '#4a5578', marginTop: 8 }}>Fetching market data…</div>}
                 </div>
