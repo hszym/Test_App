@@ -1103,30 +1103,20 @@ Respond ONLY in this exact JSON format:
                         {Object.entries(state.recommendation.suggestedParams || {}).map(([key, val]) => (
                           <div key={key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 0', borderBottom: '1px solid #f0f0f0' }}>
                             <span style={{ fontSize: 11, color: '#6b7280', fontWeight: 500 }}>{key.replace(/([A-Z])/g, ' $1').trim()}</span>
-                            <span style={{ fontSize: 12, color: '#202a3e', fontWeight: 700, fontFamily: 'monospace' }}>{val}</span>
+                            <input
+                              value={val}
+                              onChange={e => set({ recommendation: { ...state.recommendation, suggestedParams: { ...state.recommendation.suggestedParams, [key]: e.target.value } } })}
+                              style={{ fontSize: 12, color: '#202a3e', fontWeight: 700, fontFamily: 'monospace', border: 'none', borderBottom: '1px dashed #b38559', background: 'transparent', textAlign: 'right', width: 90, outline: 'none', padding: '0 2px' }}
+                            />
                           </div>
                         ))}
                       </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center' }}>
                         <button
                           onClick={handleRecommendation}
                           disabled={activeTickers.length < 2 || recLoading}
                           style={{ background: '#fff', border: '1px solid #e2e8f0', color: '#6b7280', padding: '7px 14px', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'Montserrat, sans-serif', borderRadius: 6 }}>
                           ↺ Regenerate
-                        </button>
-                        <button
-                          onClick={() => {
-                            const mapping = { tenor: 'Maturity', barrier: 'Worst-of (WO) Barrier', couponFrequency: 'Coupon Frequency', autocallFrequency: 'Autocall Barrier', protection: 'Protection Barrier' }
-                            const updatedRows = state.productRows.map(row => {
-                              const paramKey = Object.keys(mapping).find(k => mapping[k] === row.key)
-                              if (paramKey && state.recommendation.suggestedParams[paramKey]) return { ...row, val: state.recommendation.suggestedParams[paramKey] }
-                              return row
-                            })
-                            set({ productRows: updatedRows })
-                            showToast('Parameters applied ✓')
-                          }}
-                          style={{ background: '#b38559', color: '#fff', border: 'none', padding: '8px 20px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'Montserrat, sans-serif', letterSpacing: '0.04em', borderRadius: 6 }}>
-                          Apply Parameters →
                         </button>
                       </div>
                     </div>
