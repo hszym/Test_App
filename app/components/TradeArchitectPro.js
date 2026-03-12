@@ -416,6 +416,59 @@ function TickerAutocomplete({ value, onSymbolChange, onSelect }) {
 
 function Spinner() { return <span className="spin">⟳</span> }
 
+function buildMarketContext(tickers) {
+  const loaded = tickers.filter(t => t.symbol && t.data)
+  if (!loaded.length) return ''
+  return loaded.map(t => {
+    const p = t.data
+    const pos = (p.price && p.low52 && p.high52 && p.high52 !== p.low52)
+      ? Math.round(((p.price - p.low52) / (p.high52 - p.low52)) * 100) : null
+    return `${t.symbol}: price=${p.price}, IV=${p.iv}%, 52W=${p.low52}–${p.high52}${pos != null ? ` (${pos}% of range)` : ''}${p.analystRating ? `, analyst=${p.analystRating}` : ''}`
+  }).join('\n')
+}
+
+function AIField({ value, onChange, placeholder, style, className, multiLine = true, onAIWrite, aiLoading, aiMode, onAIModeChange }) {
+  const [focused, setFocused] = React.useState(false)
+  const [hovered, setHovered] = React.useState(false)
+  const showBorder = focused || hovered
+  const Tag = multiLine ? 'textarea' : 'input'
+  return (
+    <div style={{ position: 'relative' }}>
+      <Tag
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        className={className}
+        style={{ ...style, border: showBorder ? '1px solid #b38559' : '1px solid transparent', borderRadius: 4, outline: 'none', transition: 'border-color 0.15s' }}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setTimeout(() => setFocused(false), 200)}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+      />
+      {focused && onAIWrite && (
+        <div style={{ position: 'absolute', top: 6, right: 6, display: 'flex', alignItems: 'center', gap: 4, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 6, padding: '3px 5px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', zIndex: 10 }}>
+          {onAIModeChange && (
+            <div style={{ display: 'flex', gap: 2 }}>
+              {['short', 'long'].map(m => (
+                <button key={m} onMouseDown={e => { e.preventDefault(); onAIModeChange(m) }}
+                  style={{ fontSize: 9, padding: '2px 6px', border: '1px solid #e2e8f0', borderRadius: 3, background: aiMode === m ? '#202a3e' : '#fff', color: aiMode === m ? '#fff' : '#6b7280', cursor: 'pointer', fontFamily: 'Montserrat, sans-serif', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                  {m}
+                </button>
+              ))}
+            </div>
+          )}
+          <button
+            onMouseDown={e => { e.preventDefault(); onAIWrite() }}
+            disabled={aiLoading}
+            style={{ fontSize: 10, padding: '2px 8px', background: aiLoading ? '#e2e8f0' : '#b38559', color: aiLoading ? '#6b7280' : '#fff', border: 'none', borderRadius: 3, cursor: aiLoading ? 'default' : 'pointer', fontFamily: 'Montserrat, sans-serif', fontWeight: 700, letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: 4 }}>
+            {aiLoading ? <><span className="spin">⟳</span> Writing…</> : '✨ AI'}
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function ShortLongToggle({ value, onChange }) {
   return (
     <div className="tap-toggle">
@@ -465,6 +518,7 @@ export default function TradeArchitectPro() {
   const [sgLoading, setSgLoading] = useState({})
   const [sgLivePrices, setSgLivePrices] = useState({})
   const [recLoading, setRecLoading] = useState(false)
+  const [recFieldLoading, setRecFieldLoading] = React.useState({})
   const [sgPasteUrl, setSgPasteUrl] = useState('')
   const [sgAwaitingPaste, setSgAwaitingPaste] = useState(false)
 
@@ -626,6 +680,35 @@ STRICT RULES:
       console.error('AI error full details:', err)
       setState(prev => ({ ...prev, aiLoading: { ...prev.aiLoading, [field]: false } }))
       showToast('AI error: ' + (err?.message || 'Unknown error'))
+    }
+  }, [state])
+
+  const aiWriteField = useCallback(async (fieldLabel, currentText, short, onResult, onLoadingChange) => {
+    onLoadingChange(true)
+    const syms = state.tickers.filter(t => t.symbol).map(t => t.symbol).join(', ') || 'N/A'
+    const marketCtx = buildMarketContext(state.tickers)
+    const contextParts = [
+      state.thesis && `Investment thesis: ${state.thesis.slice(0, 300)}`,
+      state.basketDynamics && `Basket dynamics: ${state.basketDynamics.slice(0, 200)}`,
+      state.recommendation?.recommended && `Recommended product: ${state.recommendation.recommended}`,
+    ].filter(Boolean).join('\n')
+    const prompt = `You are a senior structured products analyst at ${state.bankName || 'Plurimi Wealth'}.
+
+Write content for: ${fieldLabel}
+Basket: ${syms}
+${marketCtx ? `Market data:\n${marketCtx}\n` : ''}${contextParts ? `Context:\n${contextParts}\n` : ''}${currentText ? `Current text (use as starting point or instruction):\n${currentText}\n` : ''}
+Rules:
+- ${short ? '1-3 sentences, direct and punchy' : '3-5 sentences, institutional prose'}
+- No markdown, no headers, no bullets, pure flowing text
+- Institutional private bank tone
+- Start directly with the content`
+    try {
+      const result = await callClaude(prompt, true)
+      onResult(cleanText(result))
+    } catch (err) {
+      showToast('AI error: ' + (err?.message || 'Unknown'))
+    } finally {
+      onLoadingChange(false)
     }
   }, [state])
 
@@ -956,15 +1039,19 @@ Respond ONLY in this exact JSON format:
             <div className="tap-wb-block" style={{ marginBottom: 16 }}>
               <div className="tap-wb-block-header">
                 <div className="tap-wb-block-title">📄 Investment Thesis</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <ShortLongToggle value={state.aiMode?.thesis || 'long'} onChange={v => set({ aiMode: { ...state.aiMode, thesis: v } })} />
-                  <button className="tap-btn tap-btn-ai" onClick={() => aiRefresh('thesis')} disabled={state.aiLoading?.thesis}>
-                    {state.aiLoading?.thesis ? <><Spinner /> Generating…</> : '✨ AI Refresh'}
-                  </button>
-                </div>
               </div>
               <div className="tap-wb-block-body">
-                <textarea className="tap-textarea" style={{ minHeight: 120, width: '100%' }} value={state.thesis} onChange={e => set({ thesis: e.target.value })} placeholder="Enter or generate an investment thesis for this basket…" />
+                <AIField
+                  value={state.thesis}
+                  onChange={e => set({ thesis: e.target.value })}
+                  placeholder="Enter or generate an investment thesis for this basket…"
+                  className="tap-textarea"
+                  style={{ minHeight: 120, width: '100%' }}
+                  onAIWrite={() => aiRefresh('thesis')}
+                  aiLoading={state.aiLoading?.thesis}
+                  aiMode={state.aiMode?.thesis || 'long'}
+                  onAIModeChange={v => set({ aiMode: { ...state.aiMode, thesis: v } })}
+                />
               </div>
             </div>
 
@@ -1030,18 +1117,18 @@ Respond ONLY in this exact JSON format:
                         <div className="tap-divider" />
                         {[{ key: 'bullCase', label: '🟢 Bull Case', field: `bull_${i}` }, { key: 'bearCase', label: '🔴 Bear Case', field: `bear_${i}` }, { key: 'entryNote', label: '📍 Entry Note', field: `entry_${i}` }].map(({ key, label, field }) => (
                           <div key={key} style={{ marginBottom: 10 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                              <label className="tap-label">{label}</label>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <ShortLongToggle value={state.aiMode?.[field] || 'long'} onChange={v => set({ aiMode: { ...state.aiMode, [field]: v } })} />
-                                <button className="tap-btn tap-btn-ai" style={{ fontSize: 10 }} onClick={() => aiRefresh(field)} disabled={state.aiLoading?.[field]}>
-                                  {state.aiLoading?.[field] ? <Spinner /> : '✨'}
-                                </button>
-                              </div>
-                            </div>
-                            <textarea className="tap-textarea" style={{ minHeight: 60, fontSize: 12 }} value={cleanText(t[key])}
+                            <label className="tap-label" style={{ display: 'block', marginBottom: 4 }}>{label}</label>
+                            <AIField
+                              value={cleanText(t[key])}
                               onChange={e => setState(prev => { const tickers = [...prev.tickers]; tickers[i] = { ...tickers[i], [key]: e.target.value }; return { ...prev, tickers } })}
-                              placeholder={`${label.split(' ').slice(1).join(' ')}…`} />
+                              placeholder={`${label.split(' ').slice(1).join(' ')}…`}
+                              className="tap-textarea"
+                              style={{ minHeight: 60, fontSize: 12 }}
+                              onAIWrite={() => aiRefresh(field)}
+                              aiLoading={state.aiLoading?.[field]}
+                              aiMode={state.aiMode?.[field] || 'long'}
+                              onAIModeChange={v => set({ aiMode: { ...state.aiMode, [field]: v } })}
+                            />
                           </div>
                         ))}
                       </div>
@@ -1054,15 +1141,19 @@ Respond ONLY in this exact JSON format:
             <div className="tap-wb-block" style={{ marginBottom: 16 }}>
               <div className="tap-wb-block-header">
                 <div className="tap-wb-block-title">🔗 Basket Dynamics</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <ShortLongToggle value={state.aiMode?.basketDynamics || 'long'} onChange={v => set({ aiMode: { ...state.aiMode, basketDynamics: v } })} />
-                  <button className="tap-btn tap-btn-ai" onClick={() => aiRefresh('basketDynamics')} disabled={state.aiLoading?.basketDynamics}>
-                    {state.aiLoading?.basketDynamics ? <><Spinner /> Generating…</> : '✨ AI Refresh'}
-                  </button>
-                </div>
               </div>
               <div className="tap-wb-block-body">
-                <textarea className="tap-textarea" style={{ minHeight: 100, width: '100%' }} value={state.basketDynamics} onChange={e => set({ basketDynamics: e.target.value })} placeholder="Describe correlation characteristics, macro drivers, and diversification merits…" />
+                <AIField
+                  value={state.basketDynamics}
+                  onChange={e => set({ basketDynamics: e.target.value })}
+                  placeholder="Describe correlation characteristics, macro drivers, and diversification merits…"
+                  className="tap-textarea"
+                  style={{ minHeight: 100, width: '100%' }}
+                  onAIWrite={() => aiRefresh('basketDynamics')}
+                  aiLoading={state.aiLoading?.basketDynamics}
+                  aiMode={state.aiMode?.basketDynamics || 'long'}
+                  onAIModeChange={v => set({ aiMode: { ...state.aiMode, basketDynamics: v } })}
+                />
               </div>
             </div>
 
@@ -1095,10 +1186,18 @@ Respond ONLY in this exact JSON format:
                         style={{ background: '#6b7a99', color: '#fff', padding: '4px 12px', fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', borderRadius: 20, border: 'none', outline: 'none', textAlign: 'center', width: 140, cursor: 'text' }}
                       />
                     </div>
-                    <textarea
+                    <AIField
                       value={state.recommendation.justification || ''}
                       onChange={e => set({ recommendation: { ...state.recommendation, justification: e.target.value } })}
-                      style={{ fontSize: 12, color: '#444', lineHeight: 1.8, borderLeft: '3px solid #b38559', paddingLeft: 16, marginBottom: 24, width: '100%', background: 'transparent', border: 'none', borderLeft: '3px solid #b38559', resize: 'vertical', outline: 'none', fontFamily: 'Montserrat, sans-serif', minHeight: 60 }}
+                      style={{ fontSize: 12, color: '#444', lineHeight: 1.8, paddingLeft: 16, marginBottom: 24, width: '100%', background: 'transparent', resize: 'vertical', fontFamily: 'Montserrat, sans-serif', minHeight: 60, borderLeft: '3px solid #b38559' }}
+                      onAIWrite={() => aiWriteField(
+                        `Justification for recommending ${state.recommendation?.recommended || 'this product'}`,
+                        state.recommendation?.justification,
+                        false,
+                        result => set({ recommendation: { ...state.recommendation, justification: result } }),
+                        loading => setRecFieldLoading(prev => ({ ...prev, justification: loading }))
+                      )}
+                      aiLoading={recFieldLoading.justification}
                     />
 
                     {/* MIDDLE SECTION — Suggested Structure */}
@@ -1140,12 +1239,21 @@ Respond ONLY in this exact JSON format:
                         <div style={{ fontSize: 16, fontFamily: "'Cormorant Garamond', serif", color: '#202a3e', fontWeight: 700, marginBottom: 12 }}>Why not the others?</div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                           {Object.entries(state.recommendation.whyNotOthers || {}).map(([prod, reason]) => (
-                            <div key={prod} style={{ fontSize: 11, color: '#333', lineHeight: 1.8 }}>
-                              <strong style={{ color: '#202a3e' }}>{prod}</strong> –{' '}
-                              <input
+                            <div key={prod} style={{ fontSize: 11, color: '#333', lineHeight: 1.8, marginBottom: 6 }}>
+                              <strong style={{ color: '#202a3e' }}>{prod}</strong>
+                              <AIField
+                                multiLine={false}
                                 value={reason}
                                 onChange={e => set({ recommendation: { ...state.recommendation, whyNotOthers: { ...state.recommendation.whyNotOthers, [prod]: e.target.value } } })}
-                                style={{ fontSize: 11, color: '#333', border: 'none', borderBottom: '1px dashed #b38559', background: 'transparent', outline: 'none', width: 'calc(100% - 120px)', fontFamily: 'Montserrat, sans-serif' }}
+                                style={{ fontSize: 11, color: '#333', width: '100%', fontFamily: 'Montserrat, sans-serif', background: 'transparent', padding: '2px 4px', marginTop: 2 }}
+                                onAIWrite={() => aiWriteField(
+                                  `Why ${prod} is less suitable than ${state.recommendation?.recommended || 'the recommended product'} for this basket`,
+                                  reason,
+                                  true,
+                                  result => set({ recommendation: { ...state.recommendation, whyNotOthers: { ...state.recommendation.whyNotOthers, [prod]: result } } }),
+                                  loading => setRecFieldLoading(prev => ({ ...prev, [`why_${prod}`]: loading }))
+                                )}
+                                aiLoading={recFieldLoading[`why_${prod}`]}
                               />
                             </div>
                           ))}
