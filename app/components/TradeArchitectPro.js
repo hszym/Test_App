@@ -1083,17 +1083,23 @@ Respond ONLY in this exact JSON format:
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
                       <div>
                         <div style={{ fontSize: 11, color: '#b38559', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>Recommended Product</div>
-                        <div style={{ fontSize: 28, fontFamily: "'Cormorant Garamond', serif", color: '#202a3e', fontWeight: 700, lineHeight: 1.1 }}>
-                          {state.recommendation.recommended}
-                        </div>
+                        <input
+                          value={state.recommendation.recommended || ''}
+                          onChange={e => set({ recommendation: { ...state.recommendation, recommended: e.target.value } })}
+                          style={{ fontSize: 28, fontFamily: "'Cormorant Garamond', serif", color: '#202a3e', fontWeight: 700, lineHeight: 1.1, border: 'none', borderBottom: '1px dashed #b38559', background: 'transparent', outline: 'none', width: 320, padding: '0 2px' }}
+                        />
                       </div>
-                      <span style={{ background: '#6b7a99', color: '#fff', padding: '4px 12px', fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', borderRadius: 20 }}>
-                        {(state.recommendation.confidence || 'Medium').toUpperCase()} CONFIDENCE
-                      </span>
+                      <input
+                        value={state.recommendation.confidence || 'Medium'}
+                        onChange={e => set({ recommendation: { ...state.recommendation, confidence: e.target.value } })}
+                        style={{ background: '#6b7a99', color: '#fff', padding: '4px 12px', fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', borderRadius: 20, border: 'none', outline: 'none', textAlign: 'center', width: 140, cursor: 'text' }}
+                      />
                     </div>
-                    <div style={{ fontSize: 12, color: '#444', lineHeight: 1.8, borderLeft: '3px solid #b38559', paddingLeft: 16, marginBottom: 24 }}>
-                      {state.recommendation.justification}
-                    </div>
+                    <textarea
+                      value={state.recommendation.justification || ''}
+                      onChange={e => set({ recommendation: { ...state.recommendation, justification: e.target.value } })}
+                      style={{ fontSize: 12, color: '#444', lineHeight: 1.8, borderLeft: '3px solid #b38559', paddingLeft: 16, marginBottom: 24, width: '100%', background: 'transparent', border: 'none', borderLeft: '3px solid #b38559', resize: 'vertical', outline: 'none', fontFamily: 'Montserrat, sans-serif', minHeight: 60 }}
+                    />
 
                     {/* MIDDLE SECTION — Suggested Structure */}
                     <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, padding: 20, marginBottom: 24 }}>
@@ -1135,7 +1141,12 @@ Respond ONLY in this exact JSON format:
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                           {Object.entries(state.recommendation.whyNotOthers || {}).map(([prod, reason]) => (
                             <div key={prod} style={{ fontSize: 11, color: '#333', lineHeight: 1.8 }}>
-                              <strong style={{ color: '#202a3e' }}>{prod}</strong> – {reason}
+                              <strong style={{ color: '#202a3e' }}>{prod}</strong> –{' '}
+                              <input
+                                value={reason}
+                                onChange={e => set({ recommendation: { ...state.recommendation, whyNotOthers: { ...state.recommendation.whyNotOthers, [prod]: e.target.value } } })}
+                                style={{ fontSize: 11, color: '#333', border: 'none', borderBottom: '1px dashed #b38559', background: 'transparent', outline: 'none', width: 'calc(100% - 120px)', fontFamily: 'Montserrat, sans-serif' }}
+                              />
                             </div>
                           ))}
                         </div>
@@ -1156,26 +1167,6 @@ Respond ONLY in this exact JSON format:
                     )}
                   </div>
                 )}
-              </div>
-            </div>
-
-            <div className="tap-wb-block" style={{ marginBottom: 16 }}>
-              <div className="tap-wb-block-header">
-                <div className="tap-wb-block-title">⚙️ Product Parameters</div>
-              </div>
-              <div className="tap-wb-block-body">
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 32px' }}>
-                  {(state.productRows || []).map((r, i) => (
-                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 0', borderBottom: '1px solid #f0f0f0' }}>
-                      <span style={{ fontSize: 11, color: '#6b7280', fontWeight: 500 }}>{r.key}</span>
-                      <input
-                        value={r.val}
-                        onChange={e => { const rows = [...state.productRows]; rows[i] = { ...rows[i], val: e.target.value }; set({ productRows: rows }) }}
-                        style={{ fontSize: 12, color: '#202a3e', fontWeight: 700, fontFamily: 'monospace', border: 'none', borderBottom: '1px dashed #b38559', background: 'transparent', textAlign: 'right', width: 110, outline: 'none', padding: '0 2px' }}
-                      />
-                    </div>
-                  ))}
-                </div>
               </div>
             </div>
 
