@@ -1159,6 +1159,26 @@ Respond ONLY in this exact JSON format:
               </div>
             </div>
 
+            <div className="tap-wb-block" style={{ marginBottom: 16 }}>
+              <div className="tap-wb-block-header">
+                <div className="tap-wb-block-title">⚙️ Product Parameters</div>
+              </div>
+              <div className="tap-wb-block-body">
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 32px' }}>
+                  {(state.productRows || []).map((r, i) => (
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 0', borderBottom: '1px solid #f0f0f0' }}>
+                      <span style={{ fontSize: 11, color: '#6b7280', fontWeight: 500 }}>{r.key}</span>
+                      <input
+                        value={r.val}
+                        onChange={e => { const rows = [...state.productRows]; rows[i] = { ...rows[i], val: e.target.value }; set({ productRows: rows }) }}
+                        style={{ fontSize: 12, color: '#202a3e', fontWeight: 700, fontFamily: 'monospace', border: 'none', borderBottom: '1px dashed #b38559', background: 'transparent', textAlign: 'right', width: 110, outline: 'none', padding: '0 2px' }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
             <div className="tap-nav">
               <button className="tap-btn tap-btn-secondary" onClick={() => set({ step: 1 })}>← Back</button>
               <button className="tap-btn tap-btn-primary" onClick={() => set({ step: 3 })}>Continue to Pricing →</button>
@@ -1290,7 +1310,7 @@ Respond ONLY in this exact JSON format:
                 </div>
                 <div style={{ marginTop: 16 }}>
                   <div className="tap-label" style={{ marginBottom: 8 }}>Product Parameters</div>
-                  <table className="tap-prod-table"><tbody>{(state.productRows || []).slice(0, 3).map((r, i) => <tr key={i}><td>{r.key}</td><td>{r.val}</td></tr>)}</tbody></table>
+                  <table className="tap-prod-table"><tbody>{(state.productRows || []).map((r, i) => <tr key={i}><td>{r.key}</td><td><input value={r.val} onChange={e => { const rows = [...state.productRows]; rows[i] = { ...rows[i], val: e.target.value }; set({ productRows: rows }) }} style={{ fontSize: 12, color: '#202a3e', fontWeight: 700, fontFamily: 'monospace', border: 'none', borderBottom: '1px dashed #b38559', background: 'transparent', textAlign: 'right', width: '100%', outline: 'none', padding: '0 2px' }} /></td></tr>)}</tbody></table>
                 </div>
                 <div style={{ marginTop: 16 }}>
                   <div className="tap-label" style={{ marginBottom: 8 }}>Pricing Grids in Export</div>
